@@ -1,0 +1,38 @@
+# ---- 环境密文(严禁提交) ----
+.env
+*.env.local
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+.ruff_cache/
+.mypy_cache/
+
+# ---- 运行数据(含敏感: 认证/工单/通知/会话等) ----
+# 键名规则 data/*.db 已覆盖如 auth.db/tickets.db/notify.db/shares.db 等
+data/*.db
+data/*.db.lock
+data/milvus_lite*
+data/prompts.json
+data/uploads/
+data/backup/
+data/manuals/
+!data/manuals/.gitkeep
+
+# ---- 运行时产物 ----
+logs/
+log/
+*.log
+.*.log
+nohup.out
+.run/
+
+# ---- 编辑器 / 系统 ----
+.DS_Store
+*.swp
+.idea/
+.vscode/

@@ -1,0 +1,507 @@
+{
+  "round": 1,
+  "timestamp": "20260819_222938",
+  "dataset": "dataset_kb.jsonl",
+  "cases": 30,
+  "configs": [
+    {
+      "config": {
+        "retrieval_top_k": 12,
+        "retrieval_score_threshold": 0.42,
+        "hybrid_bm25_k": 12,
+        "rrf_k": 60,
+        "rrf_vector_weight": 1.0,
+        "rrf_bm25_weight": 1.0
+      },
+      "metrics": {
+        "Hits@1": 0.7667,
+        "Hits@3": 0.9,
+        "Hits@5": 0.9333,
+        "Precision@1": 0.7667,
+        "Precision@3": 0.6778,
+        "Precision@5": 0.6133,
+        "Recall@1": 0.7667,
+        "Recall@3": 0.9,
+        "Recall@5": 0.9333,
+        "MRR@1": 0.7667,
+        "MRR@3": 0.8222,
+        "MRR@5": 0.8306,
+        "_composite": 0.7945,
+        "_seconds": 1.82
+      }
+    },
+    {
+      "config": {
+        "retrieval_top_k": 5,
+        "retrieval_score_threshold": 0.42,
+        "hybrid_bm25_k": 12,
+        "rrf_k": 60,
+        "rrf_vector_weight": 1.0,
+        "rrf_bm25_weight": 1.0
+      },
+      "metrics": {
+        "Hits@1": 0.7667,
+        "Hits@3": 0.9,
+        "Hits@5": 0.9333,
+        "Precision@1": 0.7667,
+        "Precision@3": 0.6778,
+        "Precision@5": 0.6133,
+        "Recall@1": 0.7667,
+        "Recall@3": 0.9,
+        "Recall@5": 0.9333,
+        "MRR@1": 0.7667,
+        "MRR@3": 0.8222,
+        "MRR@5": 0.8306,
+        "_composite": 0.7945,
+        "_seconds": 0.54
+      }
+    },
+    {
+      "config": {
+        "retrieval_top_k": 8,
+        "retrieval_score_threshold": 0.42,
+        "hybrid_bm25_k": 12,
+        "rrf_k": 60,
+        "rrf_vector_weight": 1.0,
+        "rrf_bm25_weight": 1.0
+      },
+      "metrics": {
+        "Hits@1": 0.7667,
+        "Hits@3": 0.9,
+        "Hits@5": 0.9333,
+        "Precision@1": 0.7667,
+        "Precision@3": 0.6778,
+        "Precision@5": 0.6133,
+        "Recall@1": 0.7667,
+        "Recall@3": 0.9,
+        "Recall@5": 0.9333,
+        "MRR@1": 0.7667,
+        "MRR@3": 0.8222,
+        "MRR@5": 0.8306,
+        "_composite": 0.7945,
+        "_seconds": 0.46
+      }
+    },
+    {
+      "config": {
+        "retrieval_top_k": 12,
+        "retrieval_score_threshold": 0.42,
+        "hybrid_bm25_k": 12,
+        "rrf_k": 60,
+        "rrf_vector_weight": 1.0,
+        "rrf_bm25_weight": 1.0
+      },
+      "metrics": {
+        "Hits@1": 0.7667,
+        "Hits@3": 0.9,
+        "Hits@5": 0.9333,
+        "Precision@1": 0.7667,
+        "Precision@3": 0.6778,
+        "Precision@5": 0.6133,
+        "Recall@1": 0.7667,
+        "Recall@3": 0.9,
+        "Recall@5": 0.9333,
+        "MRR@1": 0.7667,
+        "MRR@3": 0.8222,
+        "MRR@5": 0.8306,
+        "_composite": 0.7945,
+        "_seconds": 0.48
+      }
+    },
+    {
+      "config": {
+        "retrieval_top_k": 16,
+        "retrieval_score_threshold": 0.42,
+        "hybrid_bm25_k": 12,
+        "rrf_k": 60,
+        "rrf_vector_weight": 1.0,
+        "rrf_bm25_weight": 1.0
+      },
+      "metrics": {
+        "Hits@1": 0.7667,
+        "Hits@3": 0.9,
+        "Hits@5": 0.9333,
+        "Precision@1": 0.7667,
+        "Precision@3": 0.6778,
+        "Precision@5": 0.6133,
+        "Recall@1": 0.7667,
+        "Recall@3": 0.9,
+        "Recall@5": 0.9333,
+        "MRR@1": 0.7667,
+        "MRR@3": 0.8222,
+        "MRR@5": 0.8306,
+        "_composite": 0.7945,
+        "_seconds": 0.47
+      }
+    },
+    {
+      "config": {
+        "retrieval_top_k": 12,
+        "retrieval_score_threshold": 0.0,
+        "hybrid_bm25_k": 12,
+        "rrf_k": 60,
+        "rrf_vector_weight": 1.0,
+        "rrf_bm25_weight": 1.0
+      },
+      "metrics": {
+        "Hits@1": 0.7667,
+        "Hits@3": 0.9,
+        "Hits@5": 0.9333,
+        "Precision@1": 0.7667,
+        "Precision@3": 0.6778,
+        "Precision@5": 0.6133,
+        "Recall@1": 0.7667,
+        "Recall@3": 0.9,
+        "Recall@5": 0.9333,
+        "MRR@1": 0.7667,
+        "MRR@3": 0.8222,
+        "MRR@5": 0.8306,
+        "_composite": 0.7945,
+        "_seconds": 0.48
+      }
+    },
+    {
+      "config": {
+        "retrieval_top_k": 12,
+        "retrieval_score_threshold": 0.3,
+        "hybrid_bm25_k": 12,
+        "rrf_k": 60,
+        "rrf_vector_weight": 1.0,
+        "rrf_bm25_weight": 1.0
+      },
+      "metrics": {
+        "Hits@1": 0.7667,
+        "Hits@3": 0.9,
+        "Hits@5": 0.9333,
+        "Precision@1": 0.7667,
+        "Precision@3": 0.6778,
+        "Precision@5": 0.6133,
+        "Recall@1": 0.7667,
+        "Recall@3": 0.9,
+        "Recall@5": 0.9333,
+        "MRR@1": 0.7667,
+        "MRR@3": 0.8222,
+        "MRR@5": 0.8306,
+        "_composite": 0.7945,
+        "_seconds": 0.54
+      }
+    },
+    {
+      "config": {
+        "retrieval_top_k": 12,
+        "retrieval_score_threshold": 0.42,
+        "hybrid_bm25_k": 12,
+        "rrf_k": 60,
+        "rrf_vector_weight": 1.0,
+        "rrf_bm25_weight": 1.0
+      },
+      "metrics": {
+        "Hits@1": 0.7667,
+        "Hits@3": 0.9,
+        "Hits@5": 0.9333,
+        "Precision@1": 0.7667,
+        "Precision@3": 0.6778,
+        "Precision@5": 0.6133,
+        "Recall@1": 0.7667,
+        "Recall@3": 0.9,
+        "Recall@5": 0.9333,
+        "MRR@1": 0.7667,
+        "MRR@3": 0.8222,
+        "MRR@5": 0.8306,
+        "_composite": 0.7945,
+        "_seconds": 0.51
+      }
+    },
+    {
+      "config": {
+        "retrieval_top_k": 12,
+        "retrieval_score_threshold": 0.55,
+        "hybrid_bm25_k": 12,
+        "rrf_k": 60,
+        "rrf_vector_weight": 1.0,
+        "rrf_bm25_weight": 1.0
+      },
+      "metrics": {
+        "Hits@1": 0.7667,
+        "Hits@3": 0.9,
+        "Hits@5": 0.9333,
+        "Precision@1": 0.7667,
+        "Precision@3": 0.6778,
+        "Precision@5": 0.6133,
+        "Recall@1": 0.7667,
+        "Recall@3": 0.9,
+        "Recall@5": 0.9333,
+        "MRR@1": 0.7667,
+        "MRR@3": 0.8222,
+        "MRR@5": 0.8306,
+        "_composite": 0.7945,
+        "_seconds": 0.5
+      }
+    },
+    {
+      "config": {
+        "retrieval_top_k": 12,
+        "retrieval_score_threshold": 0.42,
+        "hybrid_bm25_k": 8,
+        "rrf_k": 60,
+        "rrf_vector_weight": 1.0,
+        "rrf_bm25_weight": 1.0
+      },
+      "metrics": {
+        "Hits@1": 0.7667,
+        "Hits@3": 0.9333,
+        "Hits@5": 0.9333,
+        "Precision@1": 0.7667,
+        "Precision@3": 0.7111,
+        "Precision@5": 0.6067,
+        "Recall@1": 0.7667,
+        "Recall@3": 0.9333,
+        "Recall@5": 0.9333,
+        "MRR@1": 0.7667,
+        "MRR@3": 0.8444,
+        "MRR@5": 0.8444,
+        "_composite": 0.8055,
+        "_seconds": 0.45
+      }
+    },
+    {
+      "config": {
+        "retrieval_top_k": 12,
+        "retrieval_score_threshold": 0.42,
+        "hybrid_bm25_k": 12,
+        "rrf_k": 60,
+        "rrf_vector_weight": 1.0,
+        "rrf_bm25_weight": 1.0
+      },
+      "metrics": {
+        "Hits@1": 0.7667,
+        "Hits@3": 0.9,
+        "Hits@5": 0.9333,
+        "Precision@1": 0.7667,
+        "Precision@3": 0.6778,
+        "Precision@5": 0.6133,
+        "Recall@1": 0.7667,
+        "Recall@3": 0.9,
+        "Recall@5": 0.9333,
+        "MRR@1": 0.7667,
+        "MRR@3": 0.8222,
+        "MRR@5": 0.8306,
+        "_composite": 0.7945,
+        "_seconds": 0.47
+      }
+    },
+    {
+      "config": {
+        "retrieval_top_k": 12,
+        "retrieval_score_threshold": 0.42,
+        "hybrid_bm25_k": 20,
+        "rrf_k": 60,
+        "rrf_vector_weight": 1.0,
+        "rrf_bm25_weight": 1.0
+      },
+      "metrics": {
+        "Hits@1": 0.7667,
+        "Hits@3": 0.9,
+        "Hits@5": 0.9333,
+        "Precision@1": 0.7667,
+        "Precision@3": 0.6778,
+        "Precision@5": 0.6333,
+        "Recall@1": 0.7667,
+        "Recall@3": 0.9,
+        "Recall@5": 0.9333,
+        "MRR@1": 0.7667,
+        "MRR@3": 0.8222,
+        "MRR@5": 0.8289,
+        "_composite": 0.7945,
+        "_seconds": 0.51
+      }
+    },
+    {
+      "config": {
+        "retrieval_top_k": 12,
+        "retrieval_score_threshold": 0.42,
+        "hybrid_bm25_k": 12,
+        "rrf_k": 30,
+        "rrf_vector_weight": 1.0,
+        "rrf_bm25_weight": 1.0
+      },
+      "metrics": {
+        "Hits@1": 0.7667,
+        "Hits@3": 0.9,
+        "Hits@5": 0.9333,
+        "Precision@1": 0.7667,
+        "Precision@3": 0.6778,
+        "Precision@5": 0.6133,
+        "Recall@1": 0.7667,
+        "Recall@3": 0.9,
+        "Recall@5": 0.9333,
+        "MRR@1": 0.7667,
+        "MRR@3": 0.8222,
+        "MRR@5": 0.8306,
+        "_composite": 0.7945,
+        "_seconds": 0.47
+      }
+    },
+    {
+      "config": {
+        "retrieval_top_k": 12,
+        "retrieval_score_threshold": 0.42,
+        "hybrid_bm25_k": 12,
+        "rrf_k": 60,
+        "rrf_vector_weight": 1.0,
+        "rrf_bm25_weight": 1.0
+      },
+      "metrics": {
+        "Hits@1": 0.7667,
+        "Hits@3": 0.9,
+        "Hits@5": 0.9333,
+        "Precision@1": 0.7667,
+        "Precision@3": 0.6778,
+        "Precision@5": 0.6133,
+        "Recall@1": 0.7667,
+        "Recall@3": 0.9,
+        "Recall@5": 0.9333,
+        "MRR@1": 0.7667,
+        "MRR@3": 0.8222,
+        "MRR@5": 0.8306,
+        "_composite": 0.7945,
+        "_seconds": 0.49
+      }
+    },
+    {
+      "config": {
+        "retrieval_top_k": 12,
+        "retrieval_score_threshold": 0.42,
+        "hybrid_bm25_k": 12,
+        "rrf_k": 100,
+        "rrf_vector_weight": 1.0,
+        "rrf_bm25_weight": 1.0
+      },
+      "metrics": {
+        "Hits@1": 0.7667,
+        "Hits@3": 0.9,
+        "Hits@5": 0.9333,
+        "Precision@1": 0.7667,
+        "Precision@3": 0.6889,
+        "Precision@5": 0.6133,
+        "Recall@1": 0.7667,
+        "Recall@3": 0.9,
+        "Recall@5": 0.9333,
+        "MRR@1": 0.7667,
+        "MRR@3": 0.8222,
+        "MRR@5": 0.8306,
+        "_composite": 0.7945,
+        "_seconds": 0.57
+      }
+    },
+    {
+      "config": {
+        "retrieval_top_k": 12,
+        "retrieval_score_threshold": 0.42,
+        "hybrid_bm25_k": 12,
+        "rrf_k": 60,
+        "rrf_vector_weight": 1.0,
+        "rrf_bm25_weight": 0.5
+      },
+      "metrics": {
+        "Hits@1": 0.7667,
+        "Hits@3": 0.8667,
+        "Hits@5": 0.8667,
+        "Precision@1": 0.7667,
+        "Precision@3": 0.6778,
+        "Precision@5": 0.5667,
+        "Recall@1": 0.7667,
+        "Recall@3": 0.8667,
+        "Recall@5": 0.8667,
+        "MRR@1": 0.7667,
+        "MRR@3": 0.8111,
+        "MRR@5": 0.8111,
+        "_composite": 0.7889,
+        "_seconds": 0.61
+      }
+    },
+    {
+      "config": {
+        "retrieval_top_k": 12,
+        "retrieval_score_threshold": 0.42,
+        "hybrid_bm25_k": 12,
+        "rrf_k": 60,
+        "rrf_vector_weight": 1.0,
+        "rrf_bm25_weight": 1.0
+      },
+      "metrics": {
+        "Hits@1": 0.7667,
+        "Hits@3": 0.9,
+        "Hits@5": 0.9333,
+        "Precision@1": 0.7667,
+        "Precision@3": 0.6778,
+        "Precision@5": 0.6133,
+        "Recall@1": 0.7667,
+        "Recall@3": 0.9,
+        "Recall@5": 0.9333,
+        "MRR@1": 0.7667,
+        "MRR@3": 0.8222,
+        "MRR@5": 0.8306,
+        "_composite": 0.7945,
+        "_seconds": 0.52
+      }
+    },
+    {
+      "config": {
+        "retrieval_top_k": 12,
+        "retrieval_score_threshold": 0.42,
+        "hybrid_bm25_k": 12,
+        "rrf_k": 60,
+        "rrf_vector_weight": 1.0,
+        "rrf_bm25_weight": 2.0
+      },
+      "metrics": {
+        "Hits@1": 0.7667,
+        "Hits@3": 0.9333,
+        "Hits@5": 0.9667,
+        "Precision@1": 0.7667,
+        "Precision@3": 0.7,
+        "Precision@5": 0.6267,
+        "Recall@1": 0.7667,
+        "Recall@3": 0.9333,
+        "Recall@5": 0.9667,
+        "MRR@1": 0.7667,
+        "MRR@3": 0.8389,
+        "MRR@5": 0.8472,
+        "_composite": 0.8028,
+        "_seconds": 0.52
+      }
+    }
+  ],
+  "baseline": {
+    "retrieval_top_k": 12,
+    "retrieval_score_threshold": 0.42,
+    "hybrid_bm25_k": 12,
+    "rrf_k": 60,
+    "rrf_vector_weight": 1.0,
+    "rrf_bm25_weight": 1.0
+  },
+  "best": {
+    "retrieval_top_k": 12,
+    "retrieval_score_threshold": 0.42,
+    "hybrid_bm25_k": 8,
+    "rrf_k": 60,
+    "rrf_vector_weight": 1.0,
+    "rrf_bm25_weight": 1.0
+  },
+  "best_metrics": {
+    "Hits@1": 0.7667,
+    "Hits@3": 0.9333,
+    "Hits@5": 0.9333,
+    "Precision@1": 0.7667,
+    "Precision@3": 0.7111,
+    "Precision@5": 0.6067,
+    "Recall@1": 0.7667,
+    "Recall@3": 0.9333,
+    "Recall@5": 0.9333,
+    "MRR@1": 0.7667,
+    "MRR@3": 0.8444,
+    "MRR@5": 0.8444
+  },
+  "composite": 0.8055
+}

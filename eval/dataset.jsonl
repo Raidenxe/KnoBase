@@ -1,0 +1,7 @@
+{"question": "DataGate数据采集网关开机后如何进入配置界面？", "gold_doc_ids": ["data_gateway"]}
+{"question": "网关默认登录用户名和密码是什么？", "gold_doc_ids": ["data_gateway"]}
+{"question": "采集网关上电后指示灯RAM亮起是什么状态？", "gold_doc_ids": ["data_gateway"]}
+{"question": "如何将网关恢复出厂设置？", "gold_doc_ids": ["data_gateway"]}
+{"question": "协议解析软件采集不到数据应如何排查？", "gold_doc_ids": ["data_gateway"]}
+{"question": "网关扩展RTU通讯接口支持哪些协议？", "gold_doc_ids": ["data_gateway"]}
+{"question": "设备维保支持的热线电话是多少？", "gold_doc_ids": ["support_manual"]}

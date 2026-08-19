@@ -1,0 +1,37 @@
+# ===== Web 框架 =====
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+
+# ===== 对话流程编排 =====
+langgraph>=0.2.60
+
+# ===== 向量数据库 =====
+pymilvus>=2.4.9
+milvus-lite>=2.4.10
+
+# ===== 向量化(本地 ONNX 嵌入模型) =====
+fastembed>=0.4.2
+
+# ===== LLM(OpenAI 兼容客户端,可对接 GLM/GPT/Qwen 等) =====
+openai>=1.50.0
+
+# ===== 文档解析 =====
+pypdf>=4.0.0
+python-docx>=1.1.0
+beautifulsoup4>=4.12.0
+
+# ===== 配置与校验 =====
+pydantic>=2.7.0
+pydantic-settings>=2.3.0
+
+# ===== 认证与多租户(RBAC) =====
+PyJWT>=2.9.0
+
+# ===== 运维四件套(资源水位监控) =====
+psutil>=5.9.0
+
+# ===== 测试 =====
+pytest>=8.2.0
+pytest-asyncio>=0.23.0
+httpx>=0.27.0

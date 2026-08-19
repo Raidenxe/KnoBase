@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>会话分享 - RAG 智能助手</title>
+<style>
+  :root { --bg:#f4f6fa; --panel:#fff; --border:#e4e8ef; --text:#1f2733;
+    --muted:#6b7688; --primary:#2563eb; --radius:12px;
+    --grad:linear-gradient(135deg,#2563eb,#7c3aed); --heading:#111827;
+    --shadow-sm:0 1px 3px rgba(16,24,40,.08); --shadow-md:0 12px 32px rgba(30,41,82,.12); }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    background:
+      radial-gradient(1000px 500px at 85% -10%, #eef3fb 0%, transparent 55%),
+      var(--bg); color:var(--text); }
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-thumb{background:#cdd5e1;border-radius:8px;border:2px solid transparent;background-clip:content-box}
+  .wrap { max-width:760px; margin:0 auto; padding:32px 20px 60px; }
+  header { display:flex; align-items:center; gap:12px; margin-bottom:20px; }
+  header .logo { width:34px; height:34px; border-radius:9px; background:var(--grad);
+    color:#fff; font-size:16px; display:inline-flex; align-items:center; justify-content:center;
+    box-shadow:0 6px 16px rgba(79,70,229,.24); }
+  .banner { background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    padding:14px 16px; margin-bottom:24px; font-size:13px; color:var(--muted); display:flex; align-items:center; gap:8px;
+    box-shadow:var(--shadow-sm); }
+  .msg { display:flex; gap:12px; margin-bottom:18px; }
+  .avatar { width:32px; height:32px; border-radius:50%; flex-shrink:0; display:flex; align-items:center;
+    justify-content:center; font-size:13px; color:#fff; box-shadow:var(--shadow-sm); }
+  .msg.user .avatar { background:#64748b; }
+  .msg.bot .avatar { background:var(--grad); }
+  .box { flex:1; background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    padding:12px 16px; font-size:14px; line-height:1.75; white-space:pre-wrap; word-break:break-word;
+    box-shadow:var(--shadow-sm); }
+  .box .role { font-size:12px; color:var(--muted); font-weight:600; margin-bottom:6px; }
+  .empty { text-align:center; margin-top:20%; color:var(--muted); }
+  .cite { margin-top:10px; font-size:12px; color:var(--muted); border-top:1px dashed var(--border); padding-top:8px; }
+  .cite span { color:var(--primary); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="logo">保</span>
+    <div>
+      <div style="font-weight:700;font-size:16px;">会话分享</div>
+      <div style="font-size:12px;color:var(--muted);">RAG 智能助手 · 只读快照</div>
+    </div>
+  </header>
+  <div class="banner" id="banner">加载中…</div>
+  <div id="messages"></div>
+  <div class="empty" id="empty" style="display:none;">该分享已被撤销或不存在</div>
+</div>
+
+<script>
+const token = location.pathname.split('/').pop();
+async function load() {
+  try {
+    const r = await fetch('/api/v1/shares/' + token);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    document.getElementById('banner').innerHTML =
+      `<span>📄 ${escapeHtml(d.title)}</span>` +
+      `<span style="margin-left:auto;">${d.messages.filter(m=>m.role==='user').length} 问 · ${escapeHtml(d.created_by || '匿名')}</span>`;
+    const box = document.getElementById('messages');
+    if (!d.messages.length) box.innerHTML = '<div class="empty">该会话为空</div>';
+    for (const m of d.messages) {
+      const div = document.createElement('div');
+      div.className = 'msg ' + m.role;
+      div.innerHTML = `<div class="avatar">${m.role==='user'?'我':'保'}</div>
+        <div class="box"><div class="role">${m.role==='user'?'用户':'助手'}</div>${escapeHtml(m.content)}</div>`;
+      if (m.role === 'assistant' && m.citations && m.citations.length) {
+        const cite = document.createElement('div');
+        cite.className = 'cite';
+        cite.innerHTML = '📖 来源：' + m.citations.map(c=>`<span>《${escapeHtml(c.doc_name)}》</span>`).join('、');
+        div.querySelector('.box').appendChild(cite);
+      }
+      box.appendChild(div);
+    }
+  } catch (e) {
+    document.getElementById('banner').textContent = '该分享不存在或已过期';
+    document.getElementById('empty').style.display = '';
+  }
+}
+function escapeHtml(s){return (s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,2150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>控制台 - RAG 智能助手</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<style>
+  :root { --bg:#f4f6fa; --panel:#fff; --border:#e4e8ef; --text:#1f2733;
+    --muted:#6b7688; --primary:#2563eb; --err:#dc2626; --ok:#16a34a; --radius:12px;
+    --grad:linear-gradient(135deg,#2563eb,#7c3aed); --heading:#111827;
+    --warn:#d97706; --ai:#7c3aed;
+    --shadow-sm:0 1px 3px rgba(16,24,40,.08); --shadow-md:0 10px 28px rgba(30,41,82,.12);
+    --ring:0 0 0 3px rgba(37,99,235,.16); }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    background:var(--bg); color:var(--text); }
+  .app { display:flex; min-height:100vh; }
+  /* ===== 暗色侧边栏 ===== */
+  .side { width:250px; background:#0f172a; color:#cbd5e1; padding:18px 14px; display:flex; flex-direction:column; flex-shrink:0; }
+  .side .logo { display:flex; align-items:center; gap:10px; padding:6px 8px 22px; }
+  .side .logo-badge { width:34px; height:34px; border-radius:10px; background:linear-gradient(135deg,#3b82f6,#8b5cf6); display:grid; place-items:center; color:#fff; font-weight:800; }
+  .side .logo strong { color:#fff; }
+  .side .logo small { display:block; color:#94a3b8; font-size:11px; }
+  .side .nav { display:grid; gap:4px; }
+  .side .nav a { padding:11px 12px; border-radius:9px; color:#bdc8d9; text-decoration:none; font-size:13px; cursor:pointer; }
+  .side .nav a:hover, .side .nav a.active { background:#1e3a68; color:#fff; }
+  .side .group { margin:15px 7px 7px; font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:.04em; }
+  .side .bottom { margin-top:auto; }
+  .side .account { padding:10px 12px; border:1px solid #24334b; border-radius:10px; background:#111c30; font-size:12px; cursor:pointer; }
+  .side .account strong { display:block; color:#e2e8f0; }
+  .side .account small { color:#94a3b8; }
+  .main { flex:1; min-width:0; padding:22px 28px; overflow-y:auto; }
+  .top { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+  .top .title h1 { margin:0; font-size:23px; color:var(--heading); }
+  .top .title p { margin:5px 0 0; color:var(--muted); font-size:13px; }
+  .top .tools { display:flex; gap:8px; }
+  .top .tools .btn { border:1px solid var(--border); background:var(--panel); border-radius:9px; padding:9px 12px; cursor:pointer; font-size:13px; }
+  .top .tools .btn.primary { background:var(--primary); color:#fff; border-color:var(--primary); }
+  /* ===== 概览看板 ===== */
+  .metrics { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:18px; }
+  .metric { background:var(--panel); border:1px solid var(--border); border-radius:13px; padding:15px; box-shadow:var(--shadow-sm); }
+  .metric small { color:var(--muted); font-size:11px; }
+  .metric strong { display:block; font-size:25px; margin:8px 0; color:var(--heading); }
+  .metric .up { color:var(--ok); font-size:12px; }
+  .metric .down { color:var(--err); font-size:12px; }
+  .columns { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:14px; }
+  .list .row { display:flex; align-items:center; gap:10px; padding:11px 0; border-bottom:1px solid #eef1f5; }
+  .list .row:last-child { border-bottom:0; }
+  .list .ico { width:32px; height:32px; border-radius:9px; background:#eff4ff; color:var(--primary); display:grid; place-items:center; flex-shrink:0; }
+  .list .grow { flex:1; }
+  .list .grow strong { display:block; font-size:13px; }
+  .list .grow small { color:var(--muted); font-size:11px; }
+  .list .tag { font-size:11px; padding:3px 7px; border-radius:999px; background:#ecfdf3; color:#15803d; }
+  .list .tag.warn { background:#fff7ed; color:#c2410c; }
+  .list .tag.bad { background:#fef2f2; color:#b91c1c; }
+  .overview-panel { display:none; }
+  .overview-panel.active { display:block; }
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:18px; }
+  .card .label { font-size:12px; color:var(--muted); margin-bottom:6px; }
+  .card .value { font-size:28px; font-weight:700; }
+  .card .sub { font-size:12px; color:var(--muted); margin-top:4px; }
+  .seg { display:flex; gap:12px; margin-bottom:24px; }
+  .seg .tab { padding:8px 18px; border:1px solid var(--border); border-radius:8px; background:var(--panel);
+    font-size:13px; cursor:pointer; }
+  .seg .tab.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    padding:18px; margin-bottom:24px; }
+  .panel h2 { font-size:15px; margin-bottom:14px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th,td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); }
+  th { color:var(--muted); font-weight:600; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:6px; font-size:12px; }
+  .badge.ok { background:#e8f7ee; color:var(--ok); }
+  .badge.bad { background:#fdeeee; color:var(--err); }
+  .tiny { font-size:12px; color:var(--muted); }
+  .ml { margin-left:8px; }
+  /* 运维四件套: 表单 / 曲线 / 展开面板 */
+  .form label { display:block; font-size:12px; color:var(--muted); margin:10px 0 4px; }
+  .form input, .form select, .form textarea { width:100%; padding:8px 10px; border:1px solid var(--border);
+    border-radius:8px; font-size:13px; font-family:inherit; box-sizing:border-box; }
+  .form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 16px; }
+  .form-sec { margin-bottom:8px; }
+  .form-sec h3 { font-size:14px; margin:8px 0 4px; }
+  .btn { display:inline-block; padding:8px 16px; border:none; border-radius:8px; font-size:13px; cursor:pointer;
+    background:var(--primary); color:#fff; }
+  .btn.ghost { background:var(--panel); color:var(--primary); border:1px solid var(--border); }
+  .btn.danger { background:var(--err); color:#fff; }
+  .status { font-size:12px; margin-left:10px; color:var(--muted); }
+  .prompt-badge { display:inline-block; padding:2px 10px; border-radius:999px; font-size:12px; }
+  .prompt-badge.on { background:#e8f7ee; color:var(--ok); }
+  .prompt-badge.off { background:#eef1f6; color:var(--muted); }
+  .prompt-area { min-height:200px; font-family:"SFMono-Regular",Consolas,"Courier New",monospace;
+    font-size:13px; line-height:1.6; resize:vertical; }
+  .prompt-area:focus { border-color:var(--primary); outline:none; box-shadow:0 0 0 2px rgba(37,99,235,.15); }
+  .chart-wrap { position:relative; height:260px; }
+  .card-row { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:16px; }
+  .ov { font-size:11px; color:var(--err); }
+  .detail-rows td { border-top:1px dashed var(--border); font-size:12px; }
+  .span-bar { display:flex; align-items:center; gap:8px; margin:5px 0; font-size:12px; }
+  .span-bar .bar { height:14px; background:#2563eb; border-radius:4px; min-width:2px; }
+  .span-bar .bar.red { background:#dc2626; }
+  .span-bar .bar.amber { background:#f59e0b; }
+  .span-bar .bar.green { background:#16a34a; }
+  .slowpath { font-family:monospace; font-size:12px; }
+  /* 知识库管理 MVP：上传区 / 详情抽屉 / 状态标签 / 分页 / 时间线 */
+  .upload-zone { border:2px dashed var(--border); border-radius:12px; padding:18px; text-align:center;
+    color:var(--muted); margin-bottom:8px; transition:border-color .2s, background .2s; }
+  .upload-zone.drag { border-color:var(--primary); background:#eef4ff; color:var(--primary); }
+  .drawer { position:fixed; top:0; right:0; width:560px; max-width:94vw; height:100vh; background:var(--panel);
+    border-left:1px solid var(--border); box-shadow:-4px 0 20px rgba(0,0,0,.10); z-index:100;
+    transform:translateX(110%); transition:transform .25s ease; display:flex; flex-direction:column; opacity:0; pointer-events:none; }
+  .drawer.open { transform:translateX(0); opacity:1; pointer-events:auto; }
+  .drawer-head { display:flex; align-items:center; justify-content:space-between; padding:16px 18px;
+    border-bottom:1px solid var(--border); }
+  .drawer-head h3 { font-size:16px; }
+  #kbDrawerBody { flex:1; overflow:auto; padding:16px 18px; }
+  .kv { display:grid; grid-template-columns:88px 1fr; gap:6px 10px; font-size:13px; margin-bottom:10px; }
+  .kv dt { color:var(--muted); }
+  .kv dd { margin:0; word-break:break-all; }
+  .status-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; vertical-align:middle; }
+  .chunk-item { font-size:12px; border:1px solid var(--border); border-radius:8px; padding:6px 8px; margin:4px 0; color:#39424f; }
+  .timeline { position:relative; padding-left:18px; }
+  .timeline::before { content:''; position:absolute; left:5px; top:6px; bottom:6px; width:2px; background:var(--border); }
+  .tl-item { position:relative; padding:6px 0 6px 4px; font-size:12px; }
+  .tl-item::before { content:''; position:absolute; left:-16px; top:14px; width:8px; height:8px;
+    border-radius:50%; background:var(--primary); }
+  .err-box { background:#fdeeee; color:var(--err); border:1px solid #f5c6c6; border-radius:8px;
+    padding:8px 10px; font-size:12px; white-space:pre-wrap; }
+  .danger-link { color:var(--err); cursor:pointer; }
+  /* 分类管理弹窗 */
+  .cat-modal { position:fixed; inset:0; background:rgba(15,23,42,.45); display:none; align-items:center; justify-content:center; z-index:1000; }
+  .cat-modal.open { display:flex; }
+  .cat-modal .box { background:var(--panel); width:520px; max-width:92vw; max-height:82vh; overflow:auto;
+    border-radius:14px; padding:20px; box-shadow:0 20px 60px rgba(0,0,0,.22); }
+  .cat-modal h3 { margin-bottom:12px; font-size:16px; display:flex; align-items:center; justify-content:space-between; }
+
+  /* ================= 控制台统一增强 ================= */
+  body { background: radial-gradient(1400px 620px at 82% -12%, #eef3fb 0%, transparent 55%), var(--bg); }
+  header { padding: 2px 4px; }
+  header h1 { color: var(--heading); }
+  header .back { transition: border-color .15s, transform .15s, box-shadow .2s; }
+  header .back:hover { border-color: var(--primary); box-shadow: var(--shadow-sm); transform: translateY(-1px); }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-thumb { background: #cdd5e1; border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
+  ::-webkit-scrollbar-thumb:hover { background: #aeb9ca; background-clip: content-box; }
+
+  /* 驾驶舱指标卡 */
+  .stats { gap:16px; }
+  .card { box-shadow: var(--shadow-sm); transition: transform .15s, box-shadow .2s, border-color .15s; }
+  .card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: #d6e2ff; }
+  .card .label { font-size:12px; color:var(--muted); letter-spacing:.02em; }
+  .card .value { font-size:30px; color:var(--heading); font-weight:800; }
+
+  /* 分段导航：激活渐变 */
+  .seg { gap:8px; flex-wrap:wrap; }
+  .seg .tab { transition: all .15s; border:none; box-shadow: var(--shadow-sm); background:var(--panel); color:var(--text); }
+  .seg .tab:hover:not(.active) { border-color:var(--primary); color:var(--primary); }
+  .seg .tab.active { background:var(--grad); box-shadow: 0 5px 14px rgba(37,99,235,.28); }
+  .panel { box-shadow: var(--shadow-sm); }
+  .panel h2 { color:var(--heading); }
+
+  /* 表格视觉层级：状态 > 时间 > 操作 */
+  th,td { padding:10px 12px; }
+  th { font-size:12px; text-transform:uppercase; letter-spacing:.03em; }
+  tbody tr:hover { background:#f4f7ff; }
+  td:first-child { font-weight:600; color:var(--heading); }
+  .badge { padding:3px 10px; }
+  .tiny { color:#7b8698; }
+  @media(max-width:1200px){
+    .metrics{grid-template-columns:repeat(3,1fr)}
+    .columns{grid-template-columns:1fr 1fr}
+  }
+  @media(max-width:760px){
+    .side{width:200px}
+    .metrics{grid-template-columns:repeat(2,1fr)}
+    .columns{grid-template-columns:1fr}
+    .main{padding:16px}
+  }
+  @media(max-width:600px){
+    .app{flex-direction:column}
+    .side{width:100%;flex-direction:row;flex-wrap:wrap;padding:10px 12px;gap:6px}
+    .side .logo{padding:2px 4px 4px;width:100%}
+    .side .group,.side .bottom{display:none}
+    .side .nav{flex-direction:row;flex-wrap:wrap;gap:2px}
+    .side .nav a{padding:6px 10px;font-size:12px}
+    .main{padding:12px}
+    .top{flex-direction:column;align-items:flex-start;gap:10px}
+    .metrics{grid-template-columns:repeat(2,1fr);gap:8px}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="logo">
+      <div class="logo-badge">R</div>
+      <div><strong>RAG 智能助手控制台</strong><small id="appVersion">v0.1.0 · AI 运维平台</small></div>
+    </div>
+    <div class="group">运营</div>
+    <nav class="nav" id="sideNav">
+      <a class="active" data-tab="overview" href="#">▦ 概览</a>
+      <a data-tab="conv" href="#">◫ 对话管理</a>
+      <a data-tab="fb" href="#">▤ 用户反馈</a>
+    </nav>
+    <div class="group">知识与检索</div>
+    <nav class="nav">
+      <a data-tab="kb" href="#">▥ 知识库管理</a>
+      <a data-tab="trace" href="#">⌕ 检索测试</a>
+      <a data-tab="param" href="#">◎ RAG 调试</a>
+      <a data-tab="perf" href="#">◌ 评测中心</a>
+    </nav>
+    <div class="group">模型与系统</div>
+    <nav class="nav">
+      <a data-tab="model" href="#">✦ 模型与提示词</a>
+      <a data-tab="prompt" href="#">✦ 提示词</a>
+      <a data-tab="audit" href="#">⌁ 数据与 API</a>
+      <a data-tab="sys" href="#">⚙ 系统设置</a>
+      <a data-tab="slow" href="#">▣ 操作日志</a>
+    </nav>
+    <div class="group">用户与权限</div>
+    <nav class="nav">
+      <a data-tab="users" href="#">👤 用户管理</a>
+      <a data-tab="groups" href="#">👥 用户组</a>
+      <a data-tab="grants" href="#">🔒 分类授权</a>
+    </nav>
+    <div class="group">工单与文档</div>
+    <nav class="nav">
+      <a data-tab="ticket" href="#">📋 工单管理</a>
+      <a data-tab="doc" href="#">📄 项目文档</a>
+      <a data-tab="announce" href="#">📢 公告管理</a>
+    </nav>
+    <div class="bottom">
+      <div class="account"><strong id="sideUser">admin</strong><small id="sideRole">管理员</small></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="top">
+      <div class="title"><h1 id="pageTitle">概览</h1><p id="pageSubtitle">查看 RAG 智能助手运行状态、效果与性能</p></div>
+      <div class="tools">
+        <span class="who" id="who" style="display:none"></span>
+        <button class="btn" onclick="location.reload()">近 7 天</button>
+        <button class="btn" onclick="location.reload()">↻ 刷新</button>
+        <button class="btn primary" onclick="window.open('/','_blank')">＋ 新建会话</button>
+      </div>
+    </header>
+
+    <!-- ===== 概览看板 ===== -->
+    <div class="overview-panel active" id="overviewPanel">
+      <section class="metrics" id="overviewMetrics">
+        <div class="metric"><small>总对话数</small><strong id="ovTotalConvs">—</strong></div>
+        <div class="metric"><small>检索命中率</small><strong id="ovHitRate">—</strong></div>
+        <div class="metric"><small>用户满意度</small><strong id="ovSatisfaction">—</strong></div>
+        <div class="metric"><small>拒答率</small><strong id="ovRefusalRate">—</strong></div>
+      </section>
+
+      <section class="columns">
+        <div class="card list" id="ovKbList"><h3>知识库状态</h3><div class="tiny" style="padding:12px 0">加载中…</div></div>
+        <div class="card list" id="ovRecentConvs"><h3>最近对话</h3><div class="tiny" style="padding:12px 0">加载中…</div></div>
+        <div class="card list"><h3>系统状态</h3>
+          <div class="row"><div class="ico">DB</div><div class="grow"><strong>向量数据库</strong></div><span class="tag">正常</span><small class="tiny" id="ovDbQps">QPS —</small></div>
+          <div class="row"><div class="ico">AI</div><div class="grow"><strong>LLM 服务</strong></div><span class="tag">正常</span><small class="tiny" id="ovLlmLag">—</small></div>
+          <div class="row"><div class="ico">⌕</div><div class="grow"><strong>检索服务</strong></div><span class="tag">正常</span><small class="tiny" id="ovSearchMs">—</small></div>
+          <div class="row"><div class="ico">API</div><div class="grow"><strong>API 服务</strong></div><span class="tag">正常</span><small class="tiny" id="ovApiUptime">99.9%</small></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===== 原有统计卡片 ===== -->
+    <div class="stats" id="statCards" style="display:none"></div>
+
+    <div class="seg" id="tabSeg" style="display:none">
+      <div class="tab" data-tab="conv">全量对话</div>
+  <div class="tab" data-tab="fb">用户反馈</div>
+  <div class="tab" data-tab="trace">链路耗时</div>
+  <div class="tab" data-tab="kb">知识库</div>
+  <div class="tab" data-tab="perf">接口性能</div>
+  <div class="tab" data-tab="prompt">提示词</div>
+  <div class="tab" data-tab="audit">操作日志</div>
+  <div class="tab" data-tab="sys">资源水位</div>
+  <div class="tab" data-tab="model">模型切换</div>
+  <div class="tab" data-tab="param">检索参数</div>
+  <div class="tab" data-tab="slow">慢请求</div>
+  <div class="tab" data-tab="users">用户管理</div>
+  <div class="tab" data-tab="groups">用户组</div>
+  <div class="tab" data-tab="grants">分类授权</div>
+  <div class="tab" data-tab="ticket">工单管理</div>
+  <div class="tab" data-tab="doc">项目文档</div>
+</div>
+
+<div id="convPanel" class="panel">
+  <h2>全量对话（按更新时间倒序）</h2>
+  <div id="convTable"></div>
+</div>
+<div id="fbPanel" class="panel" style="display:none">
+  <h2>用户反馈统计</h2>
+  <div id="fbTable"></div>
+</div>
+<div id="tracePanel" class="panel" style="display:none">
+  <h2>最近请求链路（含各阶段耗时）</h2>
+  <div id="traceTable"></div>
+</div>
+<div id="kbPanel" class="panel" style="display:none">
+  <h2>知识库覆盖统计</h2>
+  <div class="stats" id="kbStats" style="margin-bottom:12px;"></div>
+
+  <!-- 上传区：拖拽 + 选择文件 + 格式/大小校验 + 进度 -->
+  <div id="kbUploadZone" class="upload-zone">
+    <input type="file" id="kbFileInput" multiple hidden
+           accept=".md,.markdown,.txt,.pdf,.docx">
+    <p>拖拽文档到此处，或
+      <button type="button" class="back" style="border:none;"
+              onclick="document.getElementById('kbFileInput').click()">选择文件</button><br>
+      <span class="tiny">支持 PDF / Word(.docx) / TXT / Markdown，单文件 ≤ 20MB，上传后自动解析·切片·向量化</span></p>
+    <div id="kbUploadProgress" class="tiny" style="color:var(--primary);margin-top:6px;"></div>
+  </div>
+
+  <!-- 工具栏：搜索 + 状态筛选 + 分类 + 批量操作 -->
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0;">
+    <input id="kbSearch" placeholder="🔍 按文件名搜索" style="width:200px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px;"
+           oninput="debouncedSearch()">
+    <select id="kbStatusFilter" onchange="kbPage=1;loadKbDocs()" style="padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px;">
+      <option value="">全部状态</option>
+      <option value="processing">🟡 处理中</option>
+      <option value="done">🟢 已完成</option>
+      <option value="failed">🔴 失败</option>
+    </select>
+    <span class="tiny">知识分类：</span>
+    <select id="kbCatFilter" onchange="kbPage=1;loadKbDocs()">
+      <option value="">全部</option>
+    </select>
+    <button class="back" onclick="openCatMgmt()" style="border:none;">🏷 分类管理</button>
+    <span class="tiny ml">每页：</span>
+    <select id="kbPerPage" onchange="kbPage=1;loadKbDocs()" style="padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px;">
+      <option value="10">10</option>
+      <option value="20" selected>20</option>
+      <option value="50">50</option>
+      <option value="100">100</option>
+    </select>
+    <span class="tiny ml">批量操作（勾选后）：</span>
+    <input id="kbBatchCat" placeholder="新分类名" style="width:130px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px;">
+    <button class="back" onclick="batchApply('cat')" style="border:none;">🏷 设分类</button>
+    <select id="kbBatchScope" style="padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px;">
+      <option value="tenant">本租户可见</option>
+      <option value="private">仅管理员可见</option>
+    </select>
+    <button class="back" onclick="batchApply('scope')" style="border:none;">🔒 设权限</button>
+    <button class="back danger" onclick="batchDeleteDocs()" style="border:none;color:var(--err);">🗑 批量删除</button>
+    <button class="back" onclick="initKb()" style="border:none;">↻ 刷新</button>
+  </div>
+
+  <div id="kbDocsTable"></div>
+  <div id="kbPager" style="margin:10px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap;"></div>
+
+  <h2 style="margin-top:24px;">入库进度（后台任务）</h2>
+  <div id="kbTasksTable"></div>
+</div>
+
+<!-- 分类管理弹窗 -->
+<div id="catModal" class="cat-modal">
+  <div class="box">
+    <h3>🏷 分类管理
+      <button class="back" onclick="closeCatMgmt()" style="border:none;">✕ 关闭</button></h3>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+      <span class="tiny">勾选后可批量删除；删除仅将该分类内文档移入“未分类”，不会删除文档。</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+      <button class="back danger" onclick="deleteSelCats()" style="border:none;color:var(--err);">🗑 删除选中分类</button>
+      <span class="tiny" id="catMgmtHint"></span>
+    </div>
+    <div id="catTable"></div>
+  </div>
+</div>
+
+<!-- 文档详情抽屉 -->
+<div id="kbDrawer" class="drawer">
+  <div class="drawer-head">
+    <h3 id="kbDrawerTitle">文档详情</h3>
+    <button class="back" onclick="closeDrawer()" style="border:none;">✕ 关闭</button>
+  </div>
+  <div id="kbDrawerBody"></div>
+</div>
+
+<div id="perfPanel" class="panel" style="display:none">
+  <h2>接口性能监控（中间件埋点，P99 延迟 + QPS）</h2>
+  <div class="stats" id="perfSummary" style="margin-bottom:12px;"></div>
+  <div id="perfEndpoints"></div>
+
+  <h2 style="margin-top:24px;">LLM 用量（API 调用 Token 消耗 / 成本核算）</h2>
+  <div id="usageSummary"></div>
+</div>
+
+<div id="promptPanel" class="panel" style="display:none">
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
+    <h2 style="margin:0;">提示词热更新</h2>
+    <span id="promptBadge" class="prompt-badge" style="display:none"></span>
+    <span id="promptDirty" style="font-size:12px;color:#f59e0b;display:none;">● 有未保存修改</span>
+  </div>
+  <p class="tiny" id="promptMeta"></p>
+  <div class="form" style="margin-top:8px;">
+    <label>System Prompt <span class="tiny"> — 作为每次问答注入的 System Prompt，保存即生效。支持 <b>Ctrl+S</b> 保存、<b>Tab</b> 缩进</span></label>
+    <textarea id="promptArea" class="prompt-area" rows="14" spellcheck="false"
+      placeholder="在此编辑 System Prompt…"></textarea>
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-top:6px;">
+      <label class="tiny" id="promptCount"></label>
+      <span class="tiny">≈ <span id="promptTokens">0</span> tokens（估算）</span>
+    </div>
+  </div>
+  <div style="display:flex;gap:12px;margin-top:14px;flex-wrap:wrap;align-items:center;">
+    <button class="btn" onclick="savePrompt()">💾 保存并生效</button>
+    <button class="back" onclick="loadPrompt()" style="border:none;">↻ 刷新</button>
+    <button class="back" onclick="resetPrompt()" style="border:none;color:var(--err);">⏎ 恢复内置默认</button>
+    <span class="status" id="promptStatus"></span>
+  </div>
+</div>
+
+<div id="auditPanel" class="panel" style="display:none">
+  <h2>操作日志（敏感操作审计：上传/删除/导入/改配置）</h2>
+  <div id="auditTable"></div>
+</div>
+
+<!-- 运维四件套 ① 资源水位 -->
+<div id="sysPanel" class="panel" style="display:none">
+  <h2>资源水位监控（CPU / 内存 / 磁盘 · 24h 曲线）</h2>
+  <div class="card-row" id="sysCards"></div>
+  <div class="chart-wrap"><canvas id="sysChart"></canvas></div>
+  <p class="tiny" id="sysMeta"></p>
+</div>
+
+<!-- 运维四件套 ② 模型切换 -->
+<div id="modelPanel" class="panel" style="display:none">
+  <h2>模型切换（运行时热更新 LLM / Embedding，保存即生效）</h2>
+  <div class="form-grid">
+    <div class="form-sec">
+      <h3>LLM 大模型</h3>
+      <div class="form">
+        <label>Provider</label>
+        <select id="llmProvider"><option value="mock">mock（离线抽取式演示）</option>
+          <option value="openai">openai（OpenAI 兼容 API）</option></select>
+        <label>Base URL</label>
+        <input id="llmBaseUrl" placeholder="https://open.bigmodel.cn/api/paas/v4">
+        <label>API Key</label>
+        <input id="llmApiKey" type="password" placeholder="sk-...">
+        <label>Model</label>
+        <input id="llmModel" placeholder="glm-4-flash">
+        <label>Temperature</label>
+        <input id="llmTemp" type="number" step="0.1" min="0" max="2">
+        <div style="margin-top:12px"><button class="btn" onclick="saveLLM()">💾 保存 LLM 并生效</button>
+          <span class="status" id="llmStatus"></span></div>
+      </div>
+    </div>
+    <div class="form-sec">
+      <h3>Embedding 向量模型</h3>
+      <div class="form">
+        <label>Provider</label>
+        <select id="embProvider"><option value="fastembed">fastembed（本地 ONNX 离线）</option>
+          <option value="openai">openai（兼容 API）</option></select>
+        <label>本地模型名（fastembed）</label>
+        <input id="embModel" placeholder="BAAI/bge-small-zh-v1.5">
+        <label>API Base（openai）</label>
+        <input id="embApiBase" placeholder="https://api.openai.com/v1">
+        <label>API Key</label>
+        <input id="embApiKey" type="password" placeholder="sk-...">
+        <label>API 模型名</label>
+        <input id="embApiModel" placeholder="text-embedding-3-small">
+        <div style="margin-top:12px"><button class="btn" onclick="saveEmbedding()">💾 保存 Embedding</button>
+          <span class="status" id="embStatus"></span></div>
+      </div>
+    </div>
+  </div>
+  <p class="tiny" id="modelMeta"></p>
+</div>
+
+<!-- 运维四件套 ③ 检索参数 -->
+<div id="paramPanel" class="panel" style="display:none">
+  <h2>检索参数可视化调整（保存后下一请求即时生效）</h2>
+  <div class="form-grid" id="retrievalForm"></div>
+  <div style="margin-top:12px"><button class="btn" onclick="saveRetrieval()">💾 保存检索参数</button>
+    <button class="btn ghost" onclick="resetAllRetrieval()">↺ 全部重置回默认</button>
+    <span class="status" id="paramStatus"></span></div>
+</div>
+
+<!-- 运维四件套 ④ 慢请求明细 -->
+<div id="slowPanel" class="panel" style="display:none">
+  <h2>慢请求明细（全程超阈值的 /api/* 请求 · 点击展开阶段拆分）</h2>
+  <div id="slowTable"></div>
+</div>
+
+<!-- 用户管理(账号生命周期) -->
+<div id="usersPanel" class="panel" style="display:none">
+  <h2>用户管理</h2>
+  <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+    <input id="userSearch" placeholder="按用户名/邮箱搜索" style="flex:1;min-width:200px;padding:8px 10px;border:1px solid var(--border);border-radius:8px">
+    <button class="btn" onclick="loadUsers()">搜索</button>
+    <button class="btn primary" onclick="openUserModal()">+ 新增用户</button>
+  </div>
+  <div id="usersTable"></div>
+</div>
+
+<!-- 用户组管理(权限的载体) -->
+<div id="groupsPanel" class="panel" style="display:none">
+  <h2>用户组管理</h2>
+  <div style="display:flex;gap:8px;margin-bottom:12px">
+    <button class="btn primary" onclick="openGroupModal()">+ 新增用户组</button>
+  </div>
+  <div id="groupsTable"></div>
+</div>
+
+<!-- 分类授权(组 × 分类 权限矩阵) -->
+<div id="grantsPanel" class="panel" style="display:none">
+  <h2>知识库分类授权</h2>
+  <p class="tiny">下方为「用户组 × 知识库分类」权限矩阵：勾选 读=可检索该分类文档；勾选 管=可对该分类文档上传/编辑/删除。管理员与默认组通过「用户组」标签管理。</p>
+  <div style="display:flex;gap:8px;margin:12px 0;flex-wrap:wrap">
+    <button class="btn" onclick="loadGrants()">刷新矩阵</button>
+  </div>
+  <div id="grantsMatrix"></div>
+</div>
+
+<div id="ticketPanel" class="panel" style="display:none">
+  <h2>工单管理</h2>
+  <div id="ticketStats" class="ticket-stats"></div>
+  <div class="tiny" style="margin:6px 0">处理流转：待处理 → 处理中 → 已解决 → 已关闭；紧急工单红色高亮并优先排序，被催办工单标注「⚠️ 已催办」。</div>
+  <div id="ticketApp">
+    <div style="display:flex;gap:8px;margin:12px 0;flex-wrap:wrap;align-items:center">
+      <select id="tStatus" onchange="ticketFilter()">
+        <option value="">全部状态</option><option value="pending">待处理</option>
+        <option value="processing">处理中</option><option value="resolved">已解决</option>
+        <option value="closed">已关闭</option>
+      </select>
+      <select id="tType" onchange="ticketFilter()"><option value="">全部类型</option></select>
+      <select id="tUrgent" onchange="ticketFilter()">
+        <option value="">全部紧急</option><option value="urgent">仅紧急</option>
+      </select>
+      <button class="btn" onclick="ticketList()">刷新</button>
+    </div>
+    <div id="ticketList"></div>
+  </div>
+</div>
+
+<!-- 项目文档(README + docs/*.md, admin 在线浏览) -->
+<div id="docPanel" class="panel" style="display:none">
+  <h2>项目文档</h2>
+  <p class="tiny" style="margin-bottom:12px">在线浏览本项目 README 与 <code>docs/</code> 目录全部 Markdown 文档（仅供阅读，内容为随版本发布的源文件）。</p>
+  <div style="display:flex;gap:16px;align-items:flex-start">
+    <div id="docList" style="flex:0 0 220px;border:1px solid var(--border);border-radius:10px;overflow:auto;max-height:70vh">
+      <div style="padding:8px 10px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border)">文档列表</div>
+    </div>
+    <div id="docBody" style="flex:1;min-width:0">
+      <div class="tiny" style="color:var(--muted);margin-bottom:6px">选择一个左侧文档开始阅读</div>
+    </div>
+  </div>
+</div>
+
+<!-- 公告管理 -->
+<div id="announcePanel" class="panel" style="display:none">
+  <h2>公告管理</h2>
+  <p class="tiny" style="margin-bottom:12px">发布系统公告或知识库更新通知，全体用户可在通知中心收到。</p>
+  <div style="max-width:600px">
+    <div style="margin-bottom:12px">
+      <label style="font-weight:600;font-size:13px">公告类型</label>
+      <div style="margin-top:4px;display:flex;gap:12px">
+        <label><input type="radio" name="aType" value="announce" checked> 系统公告</label>
+        <label><input type="radio" name="aType" value="kb_update"> 知识库更新</label>
+      </div>
+    </div>
+    <div style="margin-bottom:12px">
+      <label for="aTitle" style="font-weight:600;font-size:13px">标题 <span style="color:var(--err)">*</span></label>
+      <input id="aTitle" class="inp" style="width:100%;margin-top:4px" placeholder="公告标题">
+    </div>
+    <div style="margin-bottom:12px" id="aContentGroup">
+      <label for="aContent" style="font-weight:600;font-size:13px">内容 <span style="color:var(--err)">*</span></label>
+      <textarea id="aContent" class="inp" rows="5" style="width:100%;margin-top:4px;resize:vertical" placeholder="公告详细内容…"></textarea>
+    </div>
+    <div style="margin-bottom:12px">
+      <label for="aLink" style="font-weight:600;font-size:13px">链接（可选）</label>
+      <input id="aLink" class="inp" style="width:100%;margin-top:4px" placeholder="https://…">
+    </div>
+    <div style="margin-bottom:16px">
+      <label for="aGroups" style="font-weight:600;font-size:13px">目标用户组（可选，留空=全体）</label>
+      <select id="aGroups" class="inp" style="width:100%;margin-top:4px" multiple size="4"></select>
+      <span class="tiny" style="color:var(--muted)">按住 Ctrl 可多选</span>
+    </div>
+    <button class="btn" onclick="publishAnnounce()" id="aPublishBtn">发布公告</button>
+    <span id="aResult" style="margin-left:12px"></span>
+  </div>
+  <hr style="margin:28px 0;border:none;border-top:1px solid var(--border)">
+  <h3 style="margin-bottom:10px">已发布公告</h3>
+  <div style="max-width:800px">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+      <select id="aFilterType" class="inp" style="width:auto">
+        <option value="">全部类型</option>
+        <option value="announce">系统公告</option>
+        <option value="kb_update">知识库更新</option>
+      </select>
+      <button class="btn" onclick="loadAnnounceList()">刷新</button>
+    </div>
+    <div id="announceList"></div>
+  </div>
+</div>
+
+<script>
+const API = '/api/v1';
+const token = localStorage.getItem('rag_token');
+
+function apiFetch(path, opts = {}) {
+  opts.headers = Object.assign({}, opts.headers, token ? { 'Authorization': 'Bearer ' + token } : {});
+  return fetch(API + path, opts).then(async r => {
+    if (r.status === 401) { window.location.href = '/login.html'; throw new Error('unauthorized'); }
+    if (!r.ok) throw new Error((await r.text()) || r.status);
+    return r.json();
+  });
+}
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* 校验管理员权限: 拉取 admin stats, 若 403 提示无权限 */
+async function init() {
+  const meEl = document.getElementById('who');
+  if (!token) { window.location.href = '/login.html'; return; }
+  let userName = '已登录';
+  try {
+    const u = JSON.parse(localStorage.getItem('rag_user'));
+    userName = u.username || u.name || '已登录';
+  } catch { /* 降级显示默认值 */ }
+  meEl.textContent = token ? userName : '';
+  // 同步侧边栏用户信息
+  document.getElementById('sideUser').textContent = userName;
+  // 从后端读取版本号
+  apiFetch('/health').then(h => {
+    const el = document.getElementById('appVersion');
+    if (h && h.version) el.textContent = 'v' + h.version + ' · AI 运维平台';
+  }).catch(() => {});
+  try {
+    const d = await apiFetch('/conversations/admin/stats?limit=200');
+    render(d);
+  } catch (e) {
+    // 仅覆盖数据区, 保留 #convPanel 的结构, 避免二次 init 时查不到子节点
+    const ct = document.getElementById('convTable');
+    if (ct) ct.innerHTML = `<p style="color:var(--err)">暂无权限或数据加载失败：${esc(e.message)}</p>`;
+  }
+}
+
+function render(d) {
+  const s = d.stats || {};
+  const fb = s.feedback || {};
+  document.getElementById('statCards').innerHTML = `
+    <div class="card"><div class="label">总会话数</div><div class="value">${s.total_conversations ?? 0}</div></div>
+    <div class="card"><div class="label">总问题数</div><div class="value">${s.total_questions ?? 0}</div><div class="sub">用户发起的问题</div></div>
+    <div class="card"><div class="label">拒答率</div><div class="value">${((s.refusal_rate ?? 0) * 100).toFixed(1)}%</div><div class="sub">${s.refusal_count ?? 0} 次未检索到</div></div>
+    <div class="card"><div class="label">反馈</div><div class="value" style="font-size:20px;display:flex;gap:10px;align-items:baseline">
+      <span>👍 ${fb.up ?? 0}</span><span style="color:var(--muted)">👎 ${fb.down ?? 0}</span>
+    </div><div class="sub">总 ${fb.total ?? 0} 条</div></div>`;
+
+  /* 全量对话 */
+  const convs = d.conversations || [];
+  document.getElementById('convTable').innerHTML = convs.length ? `
+    <table><tr><th>标题</th><th>消息数</th><th>更新时间</th></tr>
+    ${convs.map(c => `<tr><td>${esc(c.title)}</td><td>${c.messages}</td><td class="tiny">${esc((c.updated_at||'').replace('T',' ').slice(0,16))}</td></tr>`).join('')}
+    </table>` : '<p class="tiny">暂无对话记录</p>';
+
+  /* 反馈 */
+  document.getElementById('fbTable').innerHTML = `
+    <table>
+      <tr><th>指标</th><th>数值</th></tr>
+      <tr><td>点赞数</td><td>${fb.up ?? 0}</td></tr>
+      <tr><td>点踩数</td><td>${fb.down ?? 0}</td></tr>
+      <tr><td>总量</td><td>${fb.total ?? 0}</td></tr>
+      <tr><td>好评率</td><td>${((fb.up_ratio ?? 0) * 100).toFixed(1)}%</td></tr>
+    </table>`;
+
+  /* 链路 */
+  (async () => {
+    const tr = await apiFetch('/traces?limit=20');
+    const list = tr.traces || [];
+    document.getElementById('traceTable').innerHTML = list.length ? `
+      <table><tr><th>trace_id</th><th>状态</th><th>各阶段</th><th>总耗时</th></tr>
+      ${list.map(t => {
+        const spans = (t.spans||[]).map(s => `${s.stage} ${s.duration_ms}ms`).join(' · ');
+        return `<tr><td class="tiny">${esc(t.trace_id)}</td>
+          <td><span class="badge ${t.status==='ok'?'ok':'bad'}">${esc(t.status)}</span></td>
+          <td class="tiny">${esc(spans)||'-'}</td>
+          <td class="tiny">${t.total_ms ? t.total_ms + 'ms' : '-'}</td></tr>`; }).join('')}
+      </table>` : '<p class="tiny">暂无链路记录</p>';
+  })().catch(e => { document.getElementById('traceTable').innerHTML = `<p class="tiny">加载失败: ${esc(e.message)}</p>`; });
+}
+
+/* ===== 概览看板数据加载 ===== */
+async function loadOverview() {
+  try {
+    const d = await apiFetch('/conversations/admin/stats?limit=200');
+    const s = d.stats || {};
+    const fb = s.feedback || {};
+
+    // 6 个指标卡
+    document.getElementById('ovTotalConvs').textContent = s.total_conversations ?? '—';
+    document.getElementById('ovHitRate').textContent = s.total_questions ? Math.min(100, Math.round((s.total_questions - (s.refusal_count || 0)) / s.total_questions * 100)) + '%' : '—';
+    document.getElementById('ovSatisfaction').textContent = fb.total ? (fb.up / fb.total * 5).toFixed(1) + ' / 5' : '—';
+    document.getElementById('ovRefusalRate').textContent = ((s.refusal_rate ?? 0) * 100).toFixed(1) + '%';
+
+    // 知识库状态
+    const kbEl = document.getElementById('ovKbList');
+    try {
+      const c = await apiFetch('/documents/categories');
+      const cats = (c.categories || []).slice(0, 3);
+      const kbStats = await apiFetch('/documents/stats');
+      kbEl.innerHTML = '<h3>知识库状态</h3>' + (cats.length ? cats.map(x => `
+        <div class="row"><div class="ico">▣</div><div class="grow"><strong>${esc(x.category)}</strong><small>${x.count} 篇文档</small></div><span class="tag">正常</span></div>
+      `).join('') : `<div class="row"><div class="ico">▣</div><div class="grow"><strong>文档总数</strong><small>${kbStats.total_documents ?? 0} 篇文档</small></div><span class="tag">正常</span></div>`);
+    } catch { kbEl.innerHTML = '<h3>知识库状态</h3><div class="tiny" style="padding:12px 0">加载失败</div>'; }
+
+    // 最近对话
+    const convs = d.conversations || [];
+    const rcEl = document.getElementById('ovRecentConvs');
+    rcEl.innerHTML = '<h3>最近对话</h3>' + (convs.slice(0, 3).length ? convs.slice(0, 3).map(c => `
+      <div class="row"><div class="ico">问</div><div class="grow"><strong>${esc(c.title || '对话')}</strong><small>命中知识库</small></div><span class="sub">${c.updated_at ? esc(String(c.updated_at).replace('T',' ').slice(0,5)) : '—'}</span></div>
+    `).join('') : '<div class="tiny" style="padding:12px 0">暂无对话记录</div>');
+  } catch (e) {
+    // 静默处理
+  }
+}
+
+const KB_TABS = ['overview', 'conv', 'fb', 'trace', 'kb', 'perf', 'prompt', 'audit', 'sys', 'model', 'param', 'slow', 'users', 'groups', 'grants', 'ticket', 'doc', 'announce'];
+function activateTab(name) {
+  // 更新侧边栏
+  document.querySelectorAll('.side .nav a').forEach(x => x.classList.toggle('active', x.dataset.tab === name));
+  // 更新顶部标签栏
+  document.querySelectorAll('.seg .tab').forEach(x => x.classList.toggle('active', x.dataset.tab === name));
+  // 更新标题
+  const titles = { overview:'概览', conv:'全量对话', fb:'用户反馈', trace:'链路耗时', kb:'知识库', perf:'接口性能',
+    prompt:'提示词', audit:'操作日志', sys:'资源水位', model:'模型切换', param:'检索参数', slow:'慢请求',
+    users:'用户管理', groups:'用户组', grants:'分类授权', ticket:'工单管理', doc:'项目文档', announce:'公告管理' };
+  const subs = { overview:'查看 RAG 智能助手运行状态、效果与性能', conv:'按更新时间倒序', fb:'用户反馈统计',
+    trace:'最近请求链路（含各阶段耗时）', kb:'知识库覆盖统计', perf:'接口性能监控（中间件埋点，P99 延迟 + QPS）',
+    prompt:'提示词热更新', audit:'敏感操作审计：上传/删除/导入/改配置', sys:'CPU / 内存 / 磁盘 · 24h 曲线',
+    model:'运行时热更新 LLM / Embedding，保存即生效', param:'检索参数可视化调整（保存后下一请求即时生效）',
+    slow:'慢请求明细（全程超阈值的 /api/* 请求）', users:'用户管理', groups:'用户组管理', grants:'分类授权',
+    ticket:'工单管理', doc:'在线浏览 README 与 docs/ 目录', announce:'发布系统公告与知识库更新通知' };
+  document.getElementById('pageTitle').textContent = titles[name] || '概览';
+  document.getElementById('pageSubtitle').textContent = subs[name] || '';
+
+  // 概览面板特殊处理
+  document.getElementById('overviewPanel').style.display = name === 'overview' ? '' : 'none';
+  document.getElementById('statCards').style.display = name !== 'overview' ? '' : 'none';
+  document.getElementById('tabSeg').style.display = name !== 'overview' ? '' : 'none';
+  
+  document.getElementById('convPanel').style.display = name === 'conv' ? '' : 'none';
+  document.getElementById('fbPanel').style.display = name === 'fb' ? '' : 'none';
+  document.getElementById('tracePanel').style.display = name === 'trace' ? '' : 'none';
+  document.getElementById('kbPanel').style.display = name === 'kb' ? '' : 'none';
+  document.getElementById('perfPanel').style.display = name === 'perf' ? '' : 'none';
+  document.getElementById('promptPanel').style.display = name === 'prompt' ? '' : 'none';
+  document.getElementById('auditPanel').style.display = name === 'audit' ? '' : 'none';
+  document.getElementById('sysPanel').style.display = name === 'sys' ? '' : 'none';
+  document.getElementById('modelPanel').style.display = name === 'model' ? '' : 'none';
+  document.getElementById('paramPanel').style.display = name === 'param' ? '' : 'none';
+  document.getElementById('slowPanel').style.display = name === 'slow' ? '' : 'none';
+  document.getElementById('usersPanel').style.display = name === 'users' ? '' : 'none';
+  document.getElementById('groupsPanel').style.display = name === 'groups' ? '' : 'none';
+  document.getElementById('grantsPanel').style.display = name === 'grants' ? '' : 'none';
+  document.getElementById('ticketPanel').style.display = name === 'ticket' ? '' : 'none';
+  document.getElementById('docPanel').style.display = name === 'doc' ? '' : 'none';
+  document.getElementById('announcePanel').style.display = name === 'announce' ? '' : 'none';
+  if (name === 'overview') loadOverview();
+  else if (name === 'kb') initKb();
+  else if (name === 'perf') initPerf();
+  else if (name === 'prompt') loadPrompt();
+  else if (name === 'audit') initAudit();
+  else if (name === 'sys') initSys();
+  else if (name === 'model') initModel();
+  else if (name === 'param') initParam();
+  else if (name === 'slow') initSlow();
+  else if (name === 'users') loadUsers();
+  else if (name === 'groups') loadGroups();
+  else if (name === 'grants') loadGrants();
+  else if (name === 'ticket') initTicket();
+  else if (name === 'doc') initDoc();
+  else if (name === 'announce') initAnnounce();
+}
+// 标签栏点击
+document.querySelectorAll('.seg .tab').forEach(tab => {
+  tab.onclick = () => activateTab(tab.dataset.tab);
+});
+// 侧边栏导航点击
+document.querySelectorAll('.side .nav a').forEach(a => {
+  a.onclick = (e) => { e.preventDefault(); activateTab(a.dataset.tab); };
+});
+init();
+loadOverview();
+setInterval(() => { init(); loadOverview(); }, 15000);
+// 支持 #kb 等 hash 直达对应标签（知识库浏览器 → 管理页直达“知识库”）
+window.addEventListener('hashchange', () => {
+  const h = (location.hash || '').replace('#', '');
+  if (KB_TABS.includes(h)) activateTab(h);
+});
+(function applyInitialHash() {
+  const h = (location.hash || '').replace('#', '');
+  if (KB_TABS.includes(h)) activateTab(h);
+})();
+
+/* ---------------- 公告管理 ---------------- */
+let _announceInit = false;
+async function initAnnounce() {
+  if (_announceInit) return;
+  _announceInit = true;
+  await loadGroupOptions();
+  loadAnnounceList();
+}
+async function loadGroupOptions() {
+  try {
+    const data = await apiFetch('/groups');
+    const sel = document.getElementById('aGroups');
+    sel.innerHTML = '';
+    (data.groups || []).forEach(g => {
+      const opt = document.createElement('option');
+      opt.value = g.id;
+      opt.textContent = g.name + (g.description ? ' (' + g.description + ')' : '');
+      sel.appendChild(opt);
+    });
+  } catch { /* 没有用户组数据时留空 */ }
+}
+async function publishAnnounce() {
+  const btn = document.getElementById('aPublishBtn');
+  const result = document.getElementById('aResult');
+  btn.disabled = true;
+  result.textContent = '发布中…';
+  result.style.color = 'var(--muted)';
+  try {
+    const ntype = document.querySelector('input[name="aType"]:checked').value;
+    const title = document.getElementById('aTitle').value.trim();
+    const content = document.getElementById('aContent').value.trim();
+    const link = document.getElementById('aLink').value.trim();
+    const sel = document.getElementById('aGroups');
+    const group_ids = Array.from(sel.selectedOptions).map(o => o.value);
+    if (!title) { throw new Error('请输入公告标题'); }
+    if (ntype === 'announce' && !content) { throw new Error('系统公告需填写内容'); }
+    const data = await apiFetch('/notifications/broadcast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ntype, title, content, link, group_ids }),
+    });
+    result.textContent = '✅ 已发布，发送 ' + (data.sent || 0) + ' 条';
+    result.style.color = 'var(--ok)';
+    document.getElementById('aTitle').value = '';
+    document.getElementById('aContent').value = '';
+    document.getElementById('aLink').value = '';
+    document.getElementById('aGroups').selectedIndex = -1;
+    loadAnnounceList();
+  } catch (e) {
+    result.textContent = '❌ ' + (e.message || e);
+    result.style.color = 'var(--err)';
+  } finally {
+    btn.disabled = false;
+    setTimeout(() => { result.textContent = ''; }, 5000);
+  }
+}
+async function loadAnnounceList() {
+  const container = document.getElementById('announceList');
+  const ntype = document.getElementById('aFilterType').value;
+  try {
+    container.innerHTML = '<div class="tiny" style="padding:12px 0">加载中…</div>';
+    // 利用通知列表接口获取已发布公告（类型筛选）
+    const params = new URLSearchParams({ limit: '50', offset: '0' });
+    if (ntype) params.set('ntype', ntype);
+    const data = await apiFetch('/notifications?' + params.toString());
+    const items = data.notifications || [];
+    if (!items.length) {
+      container.innerHTML = '<div class="tiny" style="padding:12px 0;color:var(--muted)">暂无公告</div>';
+      return;
+    }
+    container.innerHTML = '';
+    items.forEach(n => {
+      const card = document.createElement('div');
+      card.style.cssText = 'border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px';
+      const typeLabel = n.ntype === 'announce' ? '系统公告' : n.ntype === 'kb_update' ? '知识库更新' : n.ntype;
+      card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center">' +
+        '<div><strong>' + esc(n.title) + '</strong> <span class="tag" style="font-size:11px">' + typeLabel + '</span></div>' +
+        '<small class="tiny" style="color:var(--muted)">' + (n.created_at || '') + '</small></div>' +
+        (n.content ? '<div style="margin-top:6px;font-size:13px;color:var(--muted)">' + esc(n.content) + '</div>' : '') +
+        (n.link ? '<div style="margin-top:4px"><a href="' + esc(n.link) + '" target="_blank">' + esc(n.link) + '</a></div>' : '');
+      container.appendChild(card);
+    });
+  } catch (e) {
+    container.innerHTML = '<div class="tiny" style="padding:12px 0;color:var(--err)">加载失败: ' + esc(e.message) + '</div>';
+  }
+}
+
+/* ---------------- 知识库管理 MVP：上传 / 列表(搜索·分页·状态) / 详情抽屉 / CRUD ---------------- */
+
+const KB_ACCEPT = ['.md', '.markdown', '.txt', '.pdf', '.docx'];
+const STATUS_META = {
+  processing: ['🟡 处理中', 'ok'],
+  done: ['🟢 已完成', 'ok'],
+  failed: ['🔴 失败', 'bad'],
+};
+let kbPage = 1;
+function statusBadge(st) {
+  const m = STATUS_META[st] || [st, 'ok'];
+  return `<span class="badge ${m[1]}">${m[0]}</span>`;
+}
+function fmtSize(n) {
+  n = Number(n || 0);
+  if (n <= 0) return '-';
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return Math.round(n / 1024) + ' KB';
+  return (n / 1024 / 1024).toFixed(1) + ' MB';
+}
+
+/* 状态栏 + 分类下拉 + 文档列表 + 后台任务 */
+async function initKb() {
+  const statsEl = document.getElementById('kbStats');
+  try {
+    const d = await apiFetch('/documents/stats');
+    statsEl.innerHTML = `
+      <div class="card"><div class="label">文档数</div><div class="value">${d.total_documents ?? 0}</div></div>
+      <div class="card"><div class="label">知识块</div><div class="value">${d.total_chunks ?? 0}</div></div>
+      <div class="card"><div class="label">覆盖率</div><div class="value">${((d.coverage_rate ?? 0) * 100).toFixed(1)}%</div><div class="sub">有命中的块占比</div></div>
+      <div class="card"><div class="label">累计命中</div><div class="value">${d.total_hits ?? 0}</div></div>`;
+  } catch (e) {
+    statsEl.innerHTML = `<p style="color:var(--err)">统计加载失败：${esc(e.message)}</p>`;
+  }
+  // 分类下拉填充 + 保留当前选择
+  try {
+    const c = await apiFetch('/documents/categories');
+    const catSel = document.getElementById('kbCatFilter');
+    const cur = catSel.value || '';
+    catSel.innerHTML = '<option value="">全部分类</option>' + (c.categories || []).map(x =>
+      `<option value="${esc(x.category)}">${esc(x.category)}（${x.count}）</option>`).join('');
+    catSel.value = cur;
+  } catch (e) { /* 忽略分类加载失败 */ }
+  kbPage = 1;
+  loadKbDocs();
+  loadKbTasks();
+}
+
+/* 文档列表：搜索 / 状态 / 分类筛选 + 分页(20/页) */
+async function loadKbDocs() {
+  const el = document.getElementById('kbDocsTable');
+  const qs = new URLSearchParams();
+  const search = document.getElementById('kbSearch').value.trim();
+  const status = document.getElementById('kbStatusFilter').value;
+  const cat = document.getElementById('kbCatFilter').value;
+  if (search) qs.set('search', search);
+  if (status) qs.set('status', status);
+  if (cat) qs.set('category', cat);
+  const per = document.getElementById('kbPerPage').value || 20;
+  qs.set('page', kbPage); qs.set('per_page', per);
+  try {
+    const d = await apiFetch('/documents?' + qs.toString());
+    const rows = d.documents || [];
+    el.innerHTML = rows.length ? `<table>
+      <tr><th><input type="checkbox" id="kbAll" onclick="toggleAll(this)"></th>
+        <th>文件名</th><th>格式</th><th>切片数</th><th>状态</th><th>版本</th><th>上传时间</th><th>操作</th></tr>
+      ${rows.map(r => `<tr>
+        <td><input type="checkbox" class="kbck" value="${esc(r.doc_id)}"></td>
+        <td><a class="tiny" style="cursor:pointer;color:var(--primary)" title="点击查看详情"
+            onclick="openDetail('${esc(r.doc_id)}')">${esc(r.display_name || r.doc_name)}</a></td>
+        <td class="tiny">${esc(r.format || '-')}</td>
+        <td>${r.chunks ?? 0}</td>
+        <td>${statusBadge(r.status)}</td>
+        <td class="tiny">${esc(r.version || '-')}</td>
+        <td class="tiny">${r.created_at ? new Date(r.created_at * 1000).toLocaleString() : '-'}</td>
+        <td><a class="tiny" style="cursor:pointer;color:var(--primary)" onclick="openDetail('${esc(r.doc_id)}')">详情</a>
+          ${r.status === 'failed' ? ` · <a class="tiny" style="cursor:pointer;color:var(--primary)" onclick="retryDoc('${esc(r.doc_id)}')">重试</a>` : ''}
+          · <a class="danger-link" onclick="delDoc('${esc(r.doc_id)}','${esc(r.display_name || r.doc_name).replace(/'/g, '\\\'')}')">删除</a></td>
+      </tr>`).join('')}
+      </table>` : '<p class="tiny">暂无文档</p>';
+    // 分页
+    const pager = document.getElementById('kbPager');
+    let ph = `<span class="tiny">共 ${d.total ?? 0} 篇 · ${((d.total_chunks ?? 0)).toLocaleString()} 块</span>`;
+    if ((d.pages || 1) > 1) {
+      ph += `<span class="tiny">· 第 ${d.page || 1}/${d.pages} 页</span>
+        <button class="back" style="padding:4px 12px" ${(d.page || 1) <= 1 ? 'disabled' : ''}
+          onclick="kbPage=${(d.page || 1) - 1};loadKbDocs()">◀ 上一页</button>
+        <button class="back" style="padding:4px 12px" ${(d.page || 1) >= (d.pages || 1) ? 'disabled' : ''}
+          onclick="kbPage=${(d.page || 1) + 1};loadKbDocs()">下一页 ▶</button>`;
+    }
+    pager.innerHTML = ph;
+  } catch (e) {
+    el.innerHTML = `<p style="color:var(--err)">加载失败：${esc(e.message)}</p>`;
+  }
+}
+
+function debouncedSearch() {
+  clearTimeout(window._kbSearchTimer);
+  window._kbSearchTimer = setTimeout(() => { kbPage = 1; loadKbDocs(); }, 350);
+}
+
+/* ---- 分类管理: 弹窗 / 重命名 / 删除(含批量) ---- */
+function toggleCatAll(src) { document.querySelectorAll('.catck').forEach(x => x.checked = src.checked); }
+async function openCatMgmt() {
+  document.getElementById('catModal').classList.add('open');
+  document.getElementById('catMgmtHint').textContent = '';
+  await loadCatMgmtTable();
+}
+function closeCatMgmt() { document.getElementById('catModal').classList.remove('open'); }
+async function loadCatMgmtTable() {
+  const el = document.getElementById('catTable');
+  try {
+    const c = await apiFetch('/documents/categories');
+    const cats = c.categories || [];
+    el.innerHTML = cats.length ? `
+      <table>
+        <tr><th style="width:36px"><input type="checkbox" id="catAll" onclick="toggleCatAll(this)"></th>
+          <th>分类名</th><th>文档数</th><th>操作</th></tr>
+        ${cats.map(x => `<tr>
+          <td><input type="checkbox" class="catck" value="${esc(x.category)}"></td>
+          <td>${esc(x.category)}</td>
+          <td>${x.count}</td>
+          <td>
+            <a class="tiny" style="cursor:pointer;color:var(--primary);margin-right:8px" onclick="renameCat('${esc(x.category).replace(/'/g, "\\'")}','${x.count}')">✏️ 重命名</a>
+            <a class="danger-link" onclick="deleteCat('${esc(x.category).replace(/'/g, "\\'")}','${x.count}')">🗑 删除</a>
+          </td>
+        </tr>`).join('')}
+      </table>`
+      : '<p class="tiny">暂无分类</p>';
+  } catch (e) { el.innerHTML = `<p class="tiny">加载失败：${esc(e.message)}</p>`; }
+}
+async function renameCat(oldName, count) {
+  const newName = prompt(`重命名分类“${oldName}”（含 ${count} 篇文档）为：`, oldName);
+  if (!newName || newName.trim() === '') return;
+  if (newName.trim() === oldName) return;
+  try {
+    const r = await apiFetch('/documents/categories/' + encodeURIComponent(oldName), {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ new_name: newName.trim() })
+    });
+    document.getElementById('catMgmtHint').textContent = `✅ 已重命名，影响 ${r.renamed ?? 0} 篇文档`;
+    loadCatMgmtTable(); refreshKbAfterMeta();
+  } catch (e) { alert('重命名失败：' + e.message); }
+}
+async function deleteCat(name, count) {
+  if (!confirm(`确认删除分类“${name}”（含 ${count} 篇文档）？其下文档将移入“未分类”，文档本身不会被删除。`)) return;
+  try { await deleteCats([name]); }
+  catch (e) { alert('删除失败：' + e.message); }
+}
+async function deleteSelCats() {
+  const names = [...document.querySelectorAll('.catck:checked')].map(x => x.value);
+  if (!names.length) { alert('请先勾选要删除的分类'); return; }
+  if (!confirm(`确认删除选中的 ${names.length} 个分类？其下文档将移入“未分类”，文档不删除。`)) return;
+  try { await deleteCats(names); }
+  catch (e) { alert('删除失败：' + e.message); }
+}
+async function deleteCats(names) {
+  const r = await apiFetch('/documents/categories/delete', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ names })
+  });
+  document.getElementById('catMgmtHint').textContent = `✅ 已删除分类，${r.cleared ?? 0} 篇文档移入未分类`;
+  loadCatMgmtTable(); refreshKbAfterMeta();
+}
+/* 分类/元数据变更后刷新统计与列表, 保持面板同步 */
+function refreshKbAfterMeta() { initKb(); }
+
+async function loadKbTasks() {
+  const tasksEl = document.getElementById('kbTasksTable');
+  try {
+    const t = await apiFetch('/tasks?limit=20');
+    const list = t.tasks || [];
+    tasksEl.innerHTML = list.length ? `
+      <table>
+        <tr><th>任务</th><th>状态</th><th>进度</th><th>当前文件</th><th>开始时间</th></tr>
+        ${list.map(x => {
+          const p = x.progress || {};
+          const total = p.total ? ` / ${p.total}` : '';
+          const pct = p.total ? Math.round((p.done || 0) / p.total * 100) + '%' : (p.done || '-');
+          return `<tr>
+            <td>${esc(x.type)}</td>
+            <td><span class="badge ${x.status === 'done' ? 'ok' : (x.status === 'failed' ? 'bad' : 'ok')}">${esc(x.status)}</span></td>
+            <td>${pct}</td>
+            <td class="tiny">${esc(p.current || '')}</td>
+            <td class="tiny">${new Date(x.created_at * 1000).toLocaleString()}</td>
+          </tr>`; }).join('')}
+      </table>` : '<p class="tiny">暂无后台任务</p>';
+  } catch (e) {
+    tasksEl.innerHTML = `<p class="tiny">加载失败：${esc(e.message)}</p>`;
+  }
+}
+
+/* ---- 上传：拖拽 + 选择文件 + 校验 + 进度 ---- */
+function setupUploadZone() {
+  const zone = document.getElementById('kbUploadZone');
+  const input = document.getElementById('kbFileInput');
+  input.onchange = () => { if (input.files.length) uploadFiles([...input.files]); input.value = ''; };
+  ['dragenter', 'dragover'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.add('drag'); }));
+  ['dragleave', 'drop'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.remove('drag'); }));
+  zone.addEventListener('drop', e => {
+    if (e.dataTransfer.files.length) uploadFiles([...e.dataTransfer.files]);
+  });
+}
+async function uploadFiles(list) {
+  const ok = list.filter(f => {
+    const ext = '.' + (f.name.split('.').pop() || '').toLowerCase();
+    if (!KB_ACCEPT.includes(ext)) { alert(`格式不支持，已跳过：${f.name}\n仅限 PDF / Word(docx) / TXT / Markdown`); return false; }
+    if (f.size > 20 * 1024 * 1024) { alert(`超过 20MB 上限，已跳过：${f.name}`); return false; }
+    return true;
+  });
+  if (!ok.length) return;
+  const prog = document.getElementById('kbUploadProgress');
+  prog.innerHTML = '';
+  for (let i = 0; i < ok.length; i++) {
+    const f = ok[i];
+    const fd = new FormData();
+    fd.append('files', f);
+    prog.innerHTML += `<div style="margin:2px 0">上传 ${esc(f.name)}：0%</div>`;
+    await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', API + '/documents/upload');
+      if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+      xhr.upload.onprogress = e => {
+        if (e.lengthComputable) {
+          const pct = Math.round(e.loaded / e.total * 100);
+          prog.lastElementChild.textContent = `上传 ${f.name}：` + pct + '%';
+        }
+      };
+      xhr.onload = () => resolve(xhr);
+      xhr.onerror = () => reject(new Error('网络错误'));
+      xhr.send(fd);
+    }).then(xhr => {
+      let body = {};
+      try { body = JSON.parse(xhr.responseText); } catch (e) { /* ignore */ }
+      const msg = xhr.status === 200
+        ? `✅ ${f.name}：完成 ${(body.imported_count || 0)} 篇${(body.error_count || 0) ? '，失败 ' + body.error_count + ' 篇' : ''}`
+        : `❌ ${f.name}：` + (body.detail || body.message || xhr.statusText || xhr.status);
+      prog.lastElementChild.textContent = msg;
+    }).catch(e => {
+      prog.lastElementChild.textContent = `❌ ${f.name}：` + e.message;
+    });
+  }
+  setTimeout(() => { prog.innerHTML = ''; kbPage = 1; loadKbDocs(); }, 600);
+}
+setupUploadZone();
+
+/* ---- 详情抽屉：基本信息 / 名称&版本编辑 / 切片 / 覆盖上传 / 时间线 ---- */
+function closeDrawer() { document.getElementById('kbDrawer').classList.remove('open'); }
+async function openDetail(docId) {
+  const drawer = document.getElementById('kbDrawer');
+  const body = document.getElementById('kbDrawerBody');
+  body.innerHTML = '<p class="tiny">加载中…</p>';
+  drawer.classList.add('open');
+  let d = {}, content = { chunks: [] }, timeline = [];
+  try { d = await apiFetch('/documents/' + encodeURIComponent(docId) + '/detail'); }
+  catch (e) { d = { error: e.message }; }
+  if (!d.error) {
+    content = await apiFetch('/documents/' + encodeURIComponent(docId) + '/content').catch(() => ({ chunks: [] }));
+    const tl = await apiFetch('/audit?limit=50&target=' + encodeURIComponent(docId)).catch(() => ({ logs: [] }));
+    timeline = (tl.logs || []).slice().reverse();
+  }
+  if (d.error) { body.innerHTML = `<div class="err-box">加载失败：${esc(d.error)}</div>`; return; }
+  const st = d.status || 'missing';
+  const chunks = content.chunks || [];
+  const errBox = st === 'failed' && d.error ? `<div class="err-box">失败原因：${esc(d.error)}</div>` : '';
+  document.getElementById('kbDrawerTitle').textContent = '文档详情';
+  body.innerHTML = `
+    <dl class="kv">
+      <dt>文件名</dt><dd>${esc(d.display_name || d.doc_id)}</dd>
+      <dt>状态</dt><dd>${statusBadge(st)}</dd>
+      <dt>原始名</dt><dd class="tiny">${esc(d.doc_name || '-')}</dd>
+      <dt>格式</dt><dd>${esc(d.format || '-')}</dd>
+      <dt>大小</dt><dd>${fmtSize(d.size)}</dd>
+      <dt>切片数</dt><dd>${d.chunks ?? 0}</dd>
+      <dt>版本号</dt><dd>${esc(d.version || '-')}</dd>
+      <dt>上传时间</dt><dd class="tiny">${d.created_at ? new Date(d.created_at * 1000).toLocaleString() : '-'}</dd>
+    </dl>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0">
+      <input id="kbEdCat" list="kbCatList" placeholder="分类（可输入新分类）" value="${esc(d.category || '')}"
+        style="flex:1;min-width:120px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px;">
+      <select id="kbEdScope" style="flex:1;max-width:150px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px;">
+        <option value="tenant" ${d.access_scope !== 'private' ? 'selected' : ''}>本租户可见</option>
+        <option value="private" ${d.access_scope === 'private' ? 'selected' : ''}>仅管理员</option>
+      </select>
+      <button class="btn ghost" style="padding:6px 12px" onclick="saveMetaFromDrawer('${esc(d.doc_id)}')">保存分类/权限</button>
+    </div>
+    ${errBox}
+    <div style="display:flex;gap:8px;margin:4px 0">
+      <button class="back" style="border:none;" onclick="openPreview('${esc(d.doc_id)}')">📖 浏览全文</button>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:12px 0">
+    <h4 style="margin-bottom:6px">✏️ 展示名称 / 软件版本号 <span class="tiny">（版本号用于按版本检索，非必填）</span></h4>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <input id="kbEdName" placeholder="展示名称" value="${esc(d.display_name || '')}" style="flex:1;min-width:140px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px;">
+      <input id="kbEdVer" placeholder="如 v2.1.0" value="${esc(d.version || '')}" style="width:130px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px;">
+      <button class="btn" onclick="saveProfile('${esc(d.doc_id)}')">保存</button>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:12px 0">
+    <h4 style="margin-bottom:6px">📁 切片内容预览 <span class="tiny">（${chunks.length} 块 · 每块前 100 字）</span></h4>
+    <div>${chunks.slice(0, 20).map(c => `<div class="chunk-item">#${c.chunk_index} ${c.section_path ? '<span class="tiny">' + esc(c.section_path) + '</span>' : ''}<br>${esc((c.text || '').slice(0, 100))}${(c.text || '').length > 100 ? '…' : ''}</div>`).join('') || '<span class="tiny">暂无切片</span>'}
+      ${chunks.length > 20 ? `<div class="tiny" style="margin-top:4px">仅显示前 20 块，共 ${chunks.length} 块</div>` : ''}</div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:12px 0">
+    <h4 style="margin-bottom:6px">🔄 版本迭代（覆盖上传）<span class="tiny">上传新文件 → 删除旧切片/向量 → 重新解析入库</span></h4>
+    <input type="file" id="kbReplaceInput" hidden accept=".md,.markdown,.txt,.pdf,.docx">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="back" style="border:none;" onclick="document.getElementById('kbReplaceInput').click()">📤 上传新版本覆盖</button>
+      <span class="tiny" id="kbReplaceName"></span>
+    </div>
+    <div id="kbReplaceProgress" class="tiny" style="color:var(--primary);margin-top:4px;"></div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:12px 0">
+    <h4 style="margin-bottom:6px">🕒 操作记录时间线</h4>
+    <div class="timeline">${timeline.length ? timeline.map(t =>
+      `<div class="tl-item">${esc(t.time || '-')} · <b>${esc(t.action)}</b> · ${esc(t.actor || '-')}<br><span class="tiny">${esc(t.detail || '')}</span></div>`).join('')
+        : '<span class="tiny">暂无操作记录</span>'}</div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:12px 0">
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${st === 'failed' ? `<button class="btn" onclick="retryDoc('${esc(d.doc_id)}', true)">↻ 失败重试</button>` : ''}
+      <button class="btn danger" onclick="delDoc('${esc(d.doc_id)}','${esc(d.display_name || d.doc_id).replace(/'/g, '\\\'')}')">🗑 删除该文档</button>
+    </div>`;
+  document.getElementById('kbReplaceInput').onchange = (e) => {
+    const f = e.target.files[0];
+    e.target.value = '';
+    if (f) overwriteDoc(d.doc_id, f);
+  };
+  loadCatList();
+}
+
+function openPreview(docId) {
+  window.open('/documents-browser?doc=' + encodeURIComponent(docId), '_blank');
+}
+/* 分类候选（供详情抽屉输入框 datalist 联想） */
+async function loadCatList() {
+  let list = '';
+  try {
+    const c = await apiFetch('/documents/categories');
+    list = (c.categories || []).map(x => `<option value="${esc(x.category)}">`).join('');
+  } catch (e) { /* 忽略 */ }
+  const d = document.getElementById('kbDrawerBody');
+  let dl = document.getElementById('kbCatList');
+  if (!dl) { dl = document.createElement('datalist'); dl.id = 'kbCatList'; d.appendChild(dl); }
+  dl.innerHTML = list;
+}
+async function saveMetaFromDrawer(docId) {
+  const cat = document.getElementById('kbEdCat').value.trim();
+  const scope = document.getElementById('kbEdScope').value;
+  const body = {};
+  if (cat !== (document.getElementById('kbEdCat').defaultValue || '')) body.category = cat;
+  if (scope) body.access_scope = scope;
+  if (!body.category && !body.access_scope) { alert('无变更'); return; }
+  try {
+    await apiFetch('/documents/' + encodeURIComponent(docId) + '/meta', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    });
+    alert('已保存分类/权限');
+    loadKbDocs(); openDetail(docId);
+  } catch (e) { alert('保存失败：' + e.message); }
+}
+async function saveProfile(docId) {
+  const name = document.getElementById('kbEdName').value.trim();
+  const ver = document.getElementById('kbEdVer').value.trim();
+  if (!name && !ver) { alert('至少填写展示名称或版本号之一'); return; }
+  try {
+    await apiFetch('/documents/' + encodeURIComponent(docId) + '/profile', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ display_name: name, version: ver })
+    });
+    alert('已保存');
+    loadKbDocs(); openDetail(docId);
+  } catch (e) { alert('保存失败：' + e.message); }
+}
+async function overwriteDoc(docId, file) {
+  const ext = '.' + (file.name.split('.').pop() || '').toLowerCase();
+  if (!KB_ACCEPT.includes(ext)) { alert('格式不支持，仅限 PDF / Word(docx) / TXT / Markdown'); return; }
+  if (file.size > 20 * 1024 * 1024) { alert('超过 20MB 上限'); return; }
+  if (!confirm('确认用新文件覆盖该文档？将删除旧切片与向量后重新入库。')) return;
+  document.getElementById('kbReplaceName').textContent = file.name + ' 覆盖中…';
+  const prog = document.getElementById('kbReplaceProgress');
+  const fd = new FormData();
+  fd.append('file', file);
+  await new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', API + '/documents/' + encodeURIComponent(docId) + '/replace');
+    if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+    xhr.upload.onprogress = e => {
+      if (e.lengthComputable) prog.textContent = `上传 ${Math.round(e.loaded / e.total * 100)}%`;
+    };
+    xhr.onload = () => resolve(xhr);
+    xhr.onerror = () => reject(new Error('网络错误'));
+    xhr.send(fd);
+  }).then(xhr => {
+    let body = {};
+    try { body = JSON.parse(xhr.responseText); } catch (e) { /* ignore */ }
+    prog.textContent = xhr.status === 200
+      ? `✅ 覆盖完成：${body.chunks ?? 0} 块 / v${body.version ?? '-'}`
+      : '❌ ' + (body.detail || body.message || xhr.statusText || xhr.status);
+    if (xhr.status === 200) { setTimeout(() => { loadKbDocs(); openDetail(docId); }, 500); }
+  }).catch(e => { prog.textContent = '❌ ' + e.message; });
+}
+async function retryDoc(docId, fromDrawer) {
+  if (!confirm('重新执行该文档的解析 + 切片 + 向量化？')) return;
+  try {
+    const r = await apiFetch('/documents/' + encodeURIComponent(docId) + '/retry', { method: 'POST' });
+    alert(`重试成功：${r.chunks} 块 / v${r.version ?? '-'}`);
+    loadKbDocs();
+    if (fromDrawer) openDetail(docId); else { const d = document.getElementById('kbDrawer'); if (d.classList.contains('open')) openDetail(docId); }
+  } catch (e) { alert('重试失败：' + e.message); loadKbDocs(); }
+  if (fromDrawer) loadKbDocs();
+}
+async function delDoc(docId, name) {
+  if (!confirm(`确定删除「${name}」？该操作不可恢复（将清理向量、版本、元数据与源文件）。`)) return;
+  try {
+    await apiFetch('/documents/' + encodeURIComponent(docId), { method: 'DELETE' });
+    alert('已删除');
+    closeDrawer(); kbPage = 1; loadKbDocs();
+  } catch (e) { alert('删除失败：' + e.message); }
+}
+
+/* ---- 批量操作 ---- */
+function toggleAll(master) {
+  document.querySelectorAll('.kbck').forEach(c => c.checked = master.checked);
+}
+function checkedIds() {
+  return [...document.querySelectorAll('.kbck:checked')].map(c => c.value);
+}
+async function batchApply(kind) {
+  const ids = checkedIds();
+  if (!ids.length) { alert('请先勾选要操作的文档'); return; }
+  const body = {};
+  if (kind === 'cat') {
+    const cat = document.getElementById('kbBatchCat').value.trim();
+    if (!cat) { alert('请输入分类名'); return; }
+    body.category = cat;
+  } else {
+    body.access_scope = document.getElementById('kbBatchScope').value;
+  }
+  try {
+    const r = await apiFetch('/documents/batch-meta', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ doc_ids: ids, ...body })
+    });
+    alert(`已更新 ${r.updated} 篇文档`);
+    loadKbDocs();
+  } catch (e) { alert('批量更新失败：' + e.message); }
+}
+async function batchDeleteDocs() {
+  const ids = [...document.querySelectorAll('.kbck:checked')].map(c => c.value);
+  if (!ids.length) { alert('请先勾选要删除的文档'); return; }
+  if (!confirm(`确认删除 ${ids.length} 篇文档及其全部向量与版本记录？该操作不可恢复。`)) return;
+  try {
+    const r = await apiFetch('/documents/batch-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ doc_ids: ids })
+    });
+    alert(`已删除 ${r.count} 篇文档`);
+    kbPage = 1; loadKbDocs();
+  } catch (e) { alert('删除失败：' + e.message); }
+}
+
+/* ---------------- 接口性能监控 / LLM 用量 ---------------- */
+async function initPerf() {
+  const sumEl = document.getElementById('perfSummary');
+  const epEl = document.getElementById('perfEndpoints');
+  const usEl = document.getElementById('usageSummary');
+  try {
+    const m = await apiFetch('/metrics/endpoints');
+    const u = await apiFetch('/metrics/usage');
+    const rows = m.endpoints || [];
+    const tt = u.totals || {};
+    sumEl.innerHTML = `
+      <div class="card"><div class="label">窗口请求量</div><div class="value">${m.total_requests ?? 0}</div><div class="sub">${m.window_seconds ?? '-'} 秒窗口</div></div>
+      <div class="card"><div class="label">监控接口数</div><div class="value">${rows.length}</div></div>
+      <div class="card"><div class="label">近${u.hours ?? 24}h LLM 调用</div><div class="value">${tt.calls ?? 0}</div><div class="sub">${(tt.total_tokens ?? 0).toLocaleString()} tokens</div></div>
+      <div class="card"><div class="label">近${u.hours ?? 24}h 估算费用</div><div class="value" style="font-size:22px">$${(u.estimated_cost ?? 0).toFixed(4)}</div></div>`;
+    epEl.innerHTML = rows.length ? `
+      <table><tr><th>接口</th><th>请求量</th><th>QPS</th><th>平均(ms)</th><th>P50</th><th>P95</th><th>P99(ms)</th><th>峰值(ms)</th></tr>
+      ${rows.map(r => `<tr><td class="tiny">${esc(r.path)}</td><td>${r.count}</td><td>${r.qps}</td><td>${r.avg_ms}</td><td>${r.p50_ms}</td><td>${r.p95_ms}</td><td><strong>${r.p99_ms}</strong></td><td>${r.max_ms}</td></tr>`).join('')}
+      </table>` : '<p class="tiny">近窗口无接口请求数据。到助手页发起几次问答后切回本页刷新。</p>';
+    const um = u.by_model || [];
+    usEl.innerHTML = um.length ? `<table><tr><th>模型</th><th>Provider</th><th>调用</th><th>Prompt Tokens</th><th>Completion Tokens</th><th>总Tokens</th><th>估算费用</th></tr>
+      ${um.map(x => `<tr><td>${esc(x.model)}</td><td>${esc(x.provider)}</td><td>${x.calls}</td><td>${x.prompt_tokens.toLocaleString()}</td><td>${x.completion_tokens.toLocaleString()}</td><td>${x.total_tokens.toLocaleString()}</td><td>$${x.estimated_cost.toFixed(4)}</td></tr>`).join('')}
+      </table>` : '<p class="tiny">暂无 LLM 调用记录（mock 模式不产生计费）</p>';
+  } catch (e) {
+    sumEl.innerHTML = '';
+    epEl.innerHTML = `<p style="color:var(--err)">加载失败：${esc(e.message)}</p>`;
+  }
+}
+
+/* ---------------- 提示词热更新 ---------------- */
+let _promptLast = '';   // 当前磁盘/存储中已保存的提示词（用于脏检查）
+
+function updatePromptStats() {
+  const area = document.getElementById('promptArea');
+  const cnt = document.getElementById('promptCount');
+  const tk = document.getElementById('promptTokens');
+  const t = area.value || '';
+  const lines = t ? t.split('\n').length : 0;
+  cnt.textContent = `${t.length} 字 · ${lines} 行`;
+  // 粗略估算: 中文约 1.7 字符/token, 英文/数字约 4 字符/token —— 仅作参考提示
+  const lat = (t.match(/[A-Za-z0-9_\-]+/g) || []).join('').length;
+  const han = t.length - lat;
+  tk.textContent = Math.ceil(han / 1.7 + lat / 4);
+}
+
+function markPromptDirty() {
+  const area = document.getElementById('promptArea');
+  const el = document.getElementById('promptDirty');
+  el.style.display = (area.value || '') !== _promptLast ? '' : 'none';
+}
+
+function loadPrompt() {
+  const area = document.getElementById('promptArea');
+  const meta = document.getElementById('promptMeta');
+  const badge = document.getElementById('promptBadge');
+  const status = document.getElementById('promptStatus');
+  return apiFetch('/admin/prompt').then(p => {
+    area.value = p.effective_prompt || '';
+    _promptLast = area.value;
+    const customized = !!p.customized;
+    badge.textContent = customized ? '自定义' : '内置默认';
+    badge.style.display = '';
+    badge.className = 'prompt-badge ' + (customized ? 'on' : 'off');
+    meta.textContent = customized
+      ? `当前为自定义提示词 · 更新人:${p.updated_by || '-'} · 时间:${p.updated_at ? new Date(p.updated_at * 1000).toLocaleString() : '-'}`
+      : '当前使用内置默认提示词（可在下方自定义并保存覆盖）';
+    status.textContent = '';
+    markPromptDirty();
+    updatePromptStats();
+  }).catch(e => {
+    status.textContent = '加载失败：' + e.message;
+  });
+}
+
+async function savePrompt() {
+  const area = document.getElementById('promptArea');
+  const status = document.getElementById('promptStatus');
+  const v = area.value.trim();
+  if (!v) { status.textContent = '提示词不能为空'; return; }
+  try {
+    const r = await apiFetch('/admin/prompt', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: v })
+    });
+    status.textContent = '已保存: ' + r.message;
+    loadPrompt();
+  } catch (e) { status.textContent = '保存失败：' + e.message; }
+}
+
+async function resetPrompt() {
+  if (!confirm('恢复内置默认提示词？当前自定义内容将被清空。')) return;
+  const status = document.getElementById('promptStatus');
+  try {
+    const r = await apiFetch('/admin/prompt', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reset: true })
+    });
+    status.textContent = r.message;
+    loadPrompt();
+  } catch (e) { status.textContent = '恢复失败：' + e.message; }
+}
+
+function initPromptArea() {
+  const area = document.getElementById('promptArea');
+  area.addEventListener('input', () => { updatePromptStats(); markPromptDirty(); });
+  area.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); savePrompt(); }
+    else if (e.key === 'Tab') {
+      e.preventDefault();
+      const s = area.selectionStart, en = area.selectionEnd;
+      area.value = area.value.slice(0, s) + '  ' + area.value.slice(en);
+      area.selectionStart = area.selectionEnd = s + 2;
+      updatePromptStats(); markPromptDirty();
+    }
+  });
+  window.addEventListener('beforeunload', (e) => {
+    if ((area.value || '') !== _promptLast) { e.preventDefault(); e.returnValue = ''; }
+  });
+}
+initPromptArea();
+
+/* ---------------- 操作日志（审计） ---------------- */
+async function initAudit() {
+  const el = document.getElementById('auditTable');
+  try {
+    const d = await apiFetch('/audit?limit=100');
+    const logs = d.logs || [];
+    el.innerHTML = logs.length ? `
+      <table><tr><th>时间</th><th>操作人</th><th>角色</th><th>动作</th><th>对象</th><th>详情</th></tr>
+      ${logs.map(l => `<tr><td class="tiny">${esc(l.time || l.ts)}</td><td>${esc(l.actor || '-')}</td><td>${esc(l.role || '-')}</td><td><span class="badge ok">${esc(l.action)}</span></td><td>${esc(l.target || '-')}</td><td class="tiny">${esc(l.detail || '')}</td></tr>`).join('')}
+      </table>` : '<p class="tiny">暂无操作日志</p>';
+  } catch (e) {
+    el.innerHTML = `<p style="color:var(--err)">加载失败：${esc(e.message)}</p>`;
+  }
+}
+
+/* ================= 运维四件套 JS ================= */
+
+function fmtMB(n){ n = Number(n||0); return n >= 1<<30 ? (n/(1<<30)).toFixed(2)+'G' : (n/(1<<20)).toFixed(0)+'M'; }
+
+/* ① 资源水位 */
+let _sysChart = null; let _sysTimer = null;
+async function initSys() {
+  if (_sysTimer) clearInterval(_sysTimer);
+  loadSysCurrent(); loadSysSeries();
+  _sysTimer = setInterval(loadSysCurrent, 15000);   // 即时读数刷新
+  setInterval(loadSysSeries, 60000);                // 曲线全量刷新
+}
+async function loadSysCurrent() {
+  try {
+    const c = await apiFetch('/admin/resource/current');
+    const el = document.getElementById('sysCards');
+    if (c && c.available === false) { el.innerHTML = `<p class="tiny">psutil 不可用：${esc(c.message||'')}</p>`; return; }
+    el.innerHTML = `
+      <div class="card"><div class="label">CPU 使用率</div><div class="value">${c.cpu}%</div></div>
+      <div class="card"><div class="label">内存</div><div class="value" style="font-size:22px">${c.mem_percent}%</div><div class="sub">${fmtMB(c.mem_used)} / ${fmtMB(c.mem_total)}</div></div>
+      <div class="card"><div class="label">磁盘</div><div class="value" style="font-size:22px">${c.disk_percent}%</div><div class="sub">${fmtMB(c.disk_used)} / ${fmtMB(c.disk_total)}</div></div>
+      <div class="card"><div class="label">进程 RSS</div><div class="value" style="font-size:22px">${fmtMB(c.rss)}</div></div>`;
+  } catch (e) { document.getElementById('sysCards').innerHTML = `<p style="color:var(--err)">加载失败：${esc(e.message)}</p>`; }
+}
+async function loadSysSeries() {
+  try {
+    const d = await apiFetch('/admin/resource/series?hours=24&step=60');
+    document.getElementById('sysMeta').textContent = (d.available ? '默认每 60s 采样一份，最近 24h' : '资源监控不可用') +
+      (d.points ? ` · 共 ${d.points.length} 个数据点` : '');
+    const pts = (d.points || []);
+    const labels = pts.map(p => new Date(p.ts * 1000).toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'}));
+    const cpu = pts.map(p => p.cpu);
+    const memPct = pts.map(p => p.mem_total ? (p.mem_used / p.mem_total * 100).toFixed(1) : 0);
+    const ctx = document.getElementById('sysChart');
+    if (typeof Chart !== 'undefined') {
+      if (_sysChart) _sysChart.destroy();
+      _sysChart = new Chart(ctx, { type:'line', data:{ labels, datasets:[
+        { label:'CPU %', data:cpu, borderColor:'#2563eb', backgroundColor:'rgba(37,99,235,.12)', fill:true, tension:.3, yAxisID:'y' },
+        { label:'内存 %', data:memPct, borderColor:'#16a34a', backgroundColor:'rgba(22,163,74,.10)', fill:true, tension:.3, yAxisID:'y' }
+      ]}, options:{ responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
+        scales:{ y:{ beginAtZero:true, max:100, title:{display:true,text:'%'} } } } });
+    } else {
+      drawCanvasFallback(ctx, labels, [cpu, memPct]);
+    }
+  } catch (e) { document.getElementById('sysMeta').textContent = '曲线加载失败：' + e.message; }
+}
+/* Chart.js 缺失时的纯 canvas 折线降级 */
+function drawCanvasFallback(canvas, labels, series) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth || 600, h = canvas.clientHeight || 260;
+  canvas.width = w * dpr; canvas.height = h * dpr; canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+  const x = canvas.getContext('2d'); x.scale(dpr, dpr); x.clearRect(0,0,w,h);
+  const colors = ['#2563eb', '#16a34a'];
+  const maxV = 100;
+  const padL = 36, padR = 12, padT = 12, padB = 24;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+  x.strokeStyle = '#e4e8ef'; x.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) { const gy = padT + plotH * (i/4);
+    x.beginPath(); x.moveTo(padL, gy); x.lineTo(w-padR, gy); x.stroke();
+    x.fillStyle = '#6b7688'; x.font = '10px sans-serif'; x.fillText(Math.round(maxV*(1-i/4))+'%', 4, gy+3); }
+  x.strokeStyle = '#d0d7e0';
+  for (let i = 0; i < labels.length; i += Math.max(1, Math.ceil(labels.length/8))) {
+    x.beginPath(); x.moveTo(padL + plotW*i/(labels.length-1||1), padT); x.lineTo(padL + plotW*i/(labels.length-1||1), h-padB); x.stroke();
+    x.fillText(labels[i], padL + plotW*i/(labels.length-1||1) - 16, h-6); }
+  series.forEach((data, si) => {
+    x.strokeStyle = colors[si % colors.length]; x.lineWidth = 2; x.beginPath();
+    data.forEach((v, i) => { const px = padL + plotW*(i/(Math.max(data.length-1,1)));
+      const py = padT + plotH*(1 - (v/maxV)); i ? x.lineTo(px, py) : x.moveTo(px, py); });
+    x.stroke(); });
+}
+
+/* ② 模型切换 */
+function initModel() {
+  apiFetch('/admin/models').then(d => {
+    const llm = d.llm || {}, emb = d.embedding || {}, ov = d.overridden || {};
+    document.getElementById('llmProvider').value = llm.provider || 'mock';
+    document.getElementById('llmBaseUrl').value = llm.base_url || '';
+    document.getElementById('llmApiKey').value = llm.api_key || '';
+    document.getElementById('llmModel').value = llm.model || '';
+    document.getElementById('llmTemp').value = llm.temperature;
+    document.getElementById('embProvider').value = (emb.provider || 'fastembed') === 'openai' ? 'openai' : 'fastembed';
+    document.getElementById('embModel').value = emb.model || '';
+    document.getElementById('embApiBase').value = emb.api_base || '';
+    document.getElementById('embApiKey').value = emb.api_key || '';
+    document.getElementById('embApiModel').value = emb.embedding_model || '';
+    document.getElementById('modelMeta').textContent =
+      `当前 LLM 生效: ${llm.effective_provider || 'mock'}${llm.is_mock ? '（mock 模式）' : ''} · Embedding 维度: ${emb.dimension ?? '-'}` +
+      (Object.keys(ov).length ? ` · 已热覆盖字段: ${Object.keys(ov).join(', ')}` : ' · 当前全部使用默认配置');
+  }).catch(e => { document.getElementById('modelMeta').textContent = '加载失败：' + e.message; });
+}
+async function saveLLM() {
+  const body = {
+    provider: document.getElementById('llmProvider').value,
+    base_url: document.getElementById('llmBaseUrl').value.trim(),
+    api_key: document.getElementById('llmApiKey').value.trim(),
+    model: document.getElementById('llmModel').value.trim(),
+    temperature: parseFloat(document.getElementById('llmTemp').value)
+  };
+  const status = document.getElementById('llmStatus');
+  status.textContent = '保存中...';
+  try {
+    const r = await apiFetch('/admin/models/llm', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    status.textContent = '已生效，当前 provider=' + (r.effective_provider || r.provider);
+    initModel();
+  } catch (e) { status.textContent = '保存失败：' + e.message; }
+}
+async function saveEmbedding() {
+  const body = {
+    provider: document.getElementById('embProvider').value,
+    model: document.getElementById('embModel').value.trim(),
+    api_base: document.getElementById('embApiBase').value.trim(),
+    api_key: document.getElementById('embApiKey').value.trim(),
+    embedding_model: document.getElementById('embApiModel').value.trim()
+  };
+  const status = document.getElementById('embStatus');
+  status.textContent = '保存中...';
+  try {
+    const r = await apiFetch('/admin/models/embedding', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    status.textContent = '已生效，维度=' + r.dimension;
+    if (r.dimension_changed) {
+      alert('⚠ Embedding 维度从 ' + r.dimension + ' 发生了变化。\n\n当前 Milvus 集合维度不匹配，新嵌入无法正常入库。\n如需使用新模型，请执行 `python scripts/migrate_schema.py --force` 重建集合。');
+    }
+    initModel();
+  } catch (e) { status.textContent = '保存失败：' + e.message; }
+}
+
+/* ③ 检索参数 */
+const RETR_TYPES = {
+  retrieval_top_k:{ label:'Top-K 召回条数', type:'number', step:1, min:1 },
+  retrieval_score_threshold:{ label:'向量相关性阈值', type:'number', step:0.01, min:0, max:1 },
+  keyword_overlap_min:{ label:'关键词覆盖率下限', type:'number', step:0.01, min:0, max:1 },
+  max_context_chunks:{ label:'进入生成的片段数', type:'number', step:1, min:1 },
+  hybrid_bm25_k:{ label:'BM25 召回条数', type:'number', step:1, min:1 },
+  rrf_k:{ label:'RRF 融合常量', type:'number', step:1, min:1 },
+  rrf_vector_weight:{ label:'向量路权重', type:'number', step:0.1, min:0 },
+  rrf_bm25_weight:{ label:'BM25 路权重', type:'number', step:0.1, min:0 },
+  rerank_enabled:{ label:'启用 Rerank', type:'bool' },
+  rerank_top_k:{ label:'Rerank 候选条数', type:'number', step:1, min:1 },
+  rerank_keep:{ label:'Rerank 保留条数', type:'number', step:1, min:1 },
+  rerank_threshold:{ label:'Rerank 相关度阈值', type:'number', step:0.01, min:0, max:1 },
+  chunk_size:{ label:'切片长度(目标字符数)', type:'number', step:1, min:64, max:2000 },
+  chunk_overlap:{ label:'切片重叠字符数', type:'number', step:1, min:0, max:512 }
+};
+// 分页分组展示, 便于可视化认知
+const RETR_GROUPS = {
+  '基础召回': ['retrieval_top_k', 'retrieval_score_threshold', 'keyword_overlap_min', 'max_context_chunks'],
+  '混合融合 (BM25 + RRF)': ['hybrid_bm25_k', 'rrf_k', 'rrf_vector_weight', 'rrf_bm25_weight'],
+  '重排序 Rerank': ['rerank_enabled', 'rerank_top_k', 'rerank_keep', 'rerank_threshold'],
+  '切片 (仅对新导入文档生效)': ['chunk_size', 'chunk_overlap']
+};
+const RETR_ORDER = Object.keys(RETR_TYPES);
+function retrFieldHtml(k) {
+  const m = RETR_TYPES[k], cur = window._rtp?.[k] || {};
+  const ovMark = cur.overridden ? '<span class="ov" title="已通过运行时动态覆盖">已覆盖</span>' : '';
+  let input;
+  if (m.type === 'bool') {
+    input = `<select data-k="${k}"><option value="true" ${cur.value?'selected':''}>开启</option><option value="false" ${!cur.value?'selected':''}>关闭</option></select>`;
+  } else {
+    input = `<input data-k="${k}" type="number" step="${m.step}" ${m.min!=null?'min="'+m.min+'"':''} ${m.max!=null?'max="'+m.max+'"':''} value="${cur.value}">`;
+  }
+  return `<div class="form-sec"><h3>${m.label} ${ovMark} <button class="btn ghost" style="padding:2px 8px;font-size:11px" onclick="resetField('${k}')">重置</button></h3>
+    <div class="form">${input}<label class="tiny">默认值: ${cur.default}</label></div></div>`;
+}
+function initParam() {
+  apiFetch('/admin/retrieval').then(d => {
+    window._rtp = d.params || {};
+    document.getElementById('retrievalForm').innerHTML = Object.keys(RETR_GROUPS).map(gname => {
+      const note = gname.includes('切片')
+        ? '<span class="tiny" style="margin-left:8px;color:var(--muted)">🕐 仅对新导入/覆盖的文档生效</span>' : '';
+      const fields = RETR_GROUPS[gname].map(retrFieldHtml).join('');
+      return `<div class="form-sec"><h3>📦 ${gname}${note}</h3><div class="form-grid" style="margin-top:4px">${fields}</div></div>`;
+    }).join('');
+  }).catch(e => { document.getElementById('retrievalForm').innerHTML = `<p style="color:var(--err)">加载失败：${e.message}</p>`; });
+}
+async function saveRetrieval() {
+  const body = {};
+  document.querySelectorAll('#retrievalForm [data-k]').forEach(inp => {
+    const k = inp.dataset.k;
+    const t = RETR_TYPES[k].type;
+    const raw = inp.value;
+    body[k] = t === 'bool' ? raw === 'true' : (t === 'number' ? parseFloat(raw) : raw);
+  });
+  const st = document.getElementById('paramStatus'); st.textContent = '保存中...';
+  try {
+    const r = await apiFetch('/admin/retrieval', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    st.textContent = r.message || '已保存';
+    initParam();
+  } catch (e) { st.textContent = '保存失败：' + e.message; }
+}
+async function resetField(k) {
+  try {
+    await apiFetch('/admin/retrieval', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ [k]: null }) });
+    initParam();
+  } catch (e) { alert('重置失败：' + e.message); }
+}
+async function resetAllRetrieval() {
+  if (!confirm('将全部检索参数重置回静态默认值？')) return;
+  try {
+    await apiFetch('/admin/retrieval', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(Object.fromEntries(RETR_ORDER.map(k => [k, null]))) });
+    initParam();
+  } catch (e) { alert('重置失败：' + e.message); }
+}
+
+/* ④ 慢请求明细 + 阶段拆分展开 */
+async function initSlow() {
+  const el = document.getElementById('slowTable');
+  try {
+    const d = await apiFetch('/admin/slow-requests?limit=30');
+    const list = d.requests || [];
+    el.innerHTML = list.length ? `
+      <table><tr><th>时间</th><th>接口</th><th>状态</th><th>全程耗时</th><th>阈值</th><th>动作</th></tr>
+      ${list.map(r => `<tr>
+        <td class="tiny">${new Date(r.created_at*1000).toLocaleString()}</td>
+        <td class="slowpath">${esc(r.path)}</td>
+        <td><span class="badge ${r.status==='ok'?'ok':'bad'}">${esc(r.status)}</span></td>
+        <td><strong>${r.total_ms}ms</strong></td>
+        <td class="tiny">${r.threshold_ms}ms</td>
+        <td><a class="tiny" style="cursor:pointer;color:var(--primary)" onclick="toggleDetail('${esc(r.trace_id)}', this)">展开拆分 ▾</a></td>
+      </tr>`).join('')}
+      </table>` : '<p class="tiny">暂无慢请求（全程大于阈值才会记录）。发起问答后可回来查看。</p>';
+  } catch (e) { el.innerHTML = `<p style="color:var(--err)">加载失败：${esc(e.message)}</p>`; }
+}
+async function toggleDetail(traceId, a) {
+  const tr = a.closest('tr');
+  let nxt = tr.nextElementSibling;
+  if (nxt && nxt.classList.contains('detail-rows')) { nxt.remove(); a.textContent = '展开拆分 ▾'; return; }
+  try {
+    const d = await apiFetch('/traces/' + encodeURIComponent(traceId) + '/detail');
+    const max = Math.max(1, ...(d.spans||[]).map(s => s.duration_ms||0));
+    const rows = (d.spans||[]).map(s => {
+      const w = Math.max(2, Math.round((s.duration_ms||0)/max*100));
+      let color = 'green'; if (s.duration_ms >= 1000) color='red'; else if (s.duration_ms >= 300) color='amber';
+      const sub = s.detail ? Object.entries(s.detail).map(([k,v])=>`${k}=${v}`).join(' · ') : '';
+      return `<div class="span-bar"><span style="width:80px">${esc(s.stage)}</span>
+        <div class="bar ${color}" style="width:${w}%"></div><span>${s.duration_ms}ms</span>
+        ${sub?`<span class="tiny">· ${esc(sub)}</span>`:''}</div>`;
+    }).join('');
+    const td = document.createElement('tr'); td.className='detail-rows';
+    td.innerHTML = `<td colspan="6"><p class="tiny" style="margin-bottom:6px">trace: ${esc(d.trace_id)} · 总耗时 ${d.total_ms}ms · 状态 ${esc(d.status)}</p>${rows||'<span class="tiny">无阶段数据</span>'}</td>`;
+    tr.after(td); a.textContent = '收起拆分 ▴';
+  } catch (e) { alert('加载拆分失败：' + e.message); }
+}
+
+/* =====================================================================
+   用户管理 / 用户组 / 分类授权(Who → Group → What 权限闭环)
+   ===================================================================== */
+
+function fmtTs(ts) { if (!ts) return '-'; try { return new Date(ts * 1000).toLocaleString(); } catch(e){ return '-'; } }
+function fmtTsStr(s) { if (!s) return '-'; return s; }
+let userGroupsCache = [];
+
+async function cachedGroups() {
+  if (!userGroupsCache.length) {
+    try { const d = await apiFetch('/auth/groups'); userGroupsCache = d.groups || []; }
+    catch (e) { userGroupsCache = []; }
+  }
+  return userGroupsCache;
+}
+function badge(st) { return st ? '<span class="badge ok">✅ 启用</span>' : '<span class="badge bad">⛔ 禁用</span>'; }
+
+/* ---------- 用户管理 ---------- */
+async function loadUsers() {
+  const q = (document.getElementById('userSearch')?.value || '').trim();
+  const el = document.getElementById('usersTable');
+  el.innerHTML = '<p class="tiny">加载中…</p>';
+  try {
+    const d = await apiFetch('/auth/users' + (q ? ('?q=' + encodeURIComponent(q)) : ''));
+    const users = d.users || [];
+    const groups = await cachedGroups();
+    const row = (u) => `<tr>
+      <td>${esc(u.username)}</td>
+      <td>${esc(u.email || '-')}</td>
+      <td>${esc((u.groups || []).map(g=>g).join('、') || '未分组')}</td>
+      <td>${badge(u.is_active)}</td>
+      <td class="tiny">${fmtTsStr(u.created_at)}</td>
+      <td class="tiny">${u.last_login_at ? fmtTs(u.last_login_at) : '从未'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn ghost" onclick="openEditUser('${esc(u.id)}', '${esc(u.username)}')">编辑</button>
+        ${u.is_active
+          ? `<button class="btn ghost" onclick="toggleUserActive('${esc(u.id)}', false, '${esc(u.username.replace(/'/g, '\\\''))}')">禁用</button>`
+          : `<button class="btn ghost" onclick="toggleUserActive('${esc(u.id)}', true, '${esc(u.username.replace(/'/g, '\\\''))}')">启用</button>`}
+        <button class="btn danger" onclick="delUser('${esc(u.id)}', '${esc(u.username.replace(/'/g, '\\\''))}')">删除</button>
+      </td></tr>`;
+    el.innerHTML = `<table class="grid"><thead><tr><th>用户名</th><th>邮箱</th><th>所属用户组</th><th>状态</th><th>创建时间</th><th>最后登录</th><th>操作</th></tr></thead>
+      <tbody>${users.map(row).join('') || '<tr><td colspan="7" class="tiny">暂无用户（请先在「新增用户」中创建）</td></tr>'}</tbody></table>`;
+  } catch (e) { el.innerHTML = `<p class="tiny">加载失败: ${esc(e.message)}</p>`; }
+}
+
+const ROLE_LABEL = { admin: '管理员', owner: '租户拥有者', member: '成员', viewer: '只读访客' };
+let _editingUserId = null;
+async function openUserModal() {
+  _editingUserId = null;
+  const groups = await cachedGroups();
+  const groupOpts = groups.map(g => `<option value="${esc(g.id)}">${esc(g.name)}</option>`).join('');
+  const html = `<div class="cat-modal open" onclick="if(event.target===this)closeUserModal()">
+    <div class="box"><h3>新增用户</h3>
+      <label>用户名 *<input id="mUserName" placeholder="登录账号"></label>
+      <label>邮箱<input id="mUserEmail" placeholder="user@example.com"></label>
+      <label>密码 *<input id="mUserPwd" type="password" placeholder="初始密码(强制下次修改)"></label>
+      <label>角色<select id="mUserRole">
+        ${Object.entries(ROLE_LABEL).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}
+      </select></label>
+      <label>所属用户组<select id="mUserGroups" multiple size="4">${groupOpts || '<option disabled>暂无用户组</option>'}</select>
+        <span class="tiny">按住 Ctrl 可多选</span></label>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+        <button class="btn" onclick="closeUserModal()">取消</button>
+        <button class="btn primary" onclick="submitUser()">创建</button></div>
+    </div></div>`;
+  document.getElementById('usersPanel').insertAdjacentHTML('beforeend', html);
+}
+function closeUserModal() { document.querySelectorAll('#usersPanel .cat-modal').forEach(x => x.remove()); }
+async function openEditUser(id, username) {
+  _editingUserId = id;
+  const groups = await cachedGroups();
+  let cur = { role: 'member', email: '', display_name: '', groups: [] };
+  try { cur = await apiFetch('/auth/users/' + encodeURIComponent(id)); } catch (e) {}
+  const myGroupIds = new Set((cur.groups || []).map(g => g.id || g));
+  const groupOpts = groups.map(g => `<option value="${esc(g.id)}" ${myGroupIds.has(g.id)?'selected':''}>${esc(g.name)}</option>`).join('');
+  const html = `<div class="cat-modal open" onclick="if(event.target===this)closeUserModal()">
+    <div class="box"><h3>编辑用户 · ${esc(username)}</h3>
+      <label>邮箱<input id="mUserEmail" value="${esc(cur.email||'')}"></label>
+      <label>角色<select id="mUserRole">
+        ${Object.entries(ROLE_LABEL).map(([k,v])=>`<option value="${k}" ${cur.role===k?'selected':''}>${v}</option>`).join('')}
+      </select></label>
+      <label>所属用户组<select id="mUserGroups" multiple size="4">${groupOpts || '<option disabled>暂无用户组</option>'}</select>
+        <span class="tiny">按住 Ctrl 可多选</span></label>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+        <button class="btn" onclick="resetUserPwd('${esc(id)}')">重置密码</button>
+        <button class="btn" onclick="closeUserModal()">取消</button>
+        <button class="btn primary" onclick="submitUser()">保存</button></div>
+    </div></div>`;
+  document.getElementById('usersPanel').insertAdjacentHTML('beforeend', html);
+}
+async function submitUser() {
+  const email = document.getElementById('mUserEmail')?.value || '';
+  const role = document.getElementById('mUserRole')?.value || 'member';
+  const gsel = document.getElementById('mUserGroups');
+  const group_ids = gsel ? Array.from(gsel.selectedOptions).map(o => o.value) : [];
+  if (!_editingUserId) {
+    const username = document.getElementById('mUserName')?.value?.trim();
+    const password = document.getElementById('mUserPwd')?.value || '';
+    if (!username || !password) return alert('用户名与密码必填');
+    await apiFetch('/auth/users', { method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ username, password, role, email, tenant_id: '', display_name: username, group_ids }) });
+  } else {
+    await apiFetch('/auth/users/' + encodeURIComponent(_editingUserId), { method: 'PUT', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ role, email, group_ids }) });
+  }
+  closeUserModal(); loadUsers();
+}
+async function resetUserPwd(id) {
+  const pwd = prompt('输入新密码（重置后该用户下次登录需强制修改）');
+  if (!pwd) return;
+  await apiFetch('/auth/users/' + encodeURIComponent(id) + '/reset-password', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ new_password: pwd }) });
+  alert('已重置密码'); closeUserModal(); loadUsers();
+}
+async function toggleUserActive(id, enable, name) {
+  if (!confirm((enable?'启用':'禁用') + '用户 ' + (name||id) + '？')) return;
+  await apiFetch(`/auth/users/${encodeURIComponent(id)}/${enable?'enable':'disable'}`, { method: 'POST' });
+  loadUsers();
+}
+async function delUser(id, name) {
+  if (!confirm('确定删除用户 ' + (name||id) + '？（保留其创建的文档记录）')) return;
+  await apiFetch('/auth/users/' + encodeURIComponent(id), { method: 'DELETE' });
+  loadUsers();
+}
+
+/* ---------- 用户组管理 ---------- */
+async function loadGroups() {
+  const el = document.getElementById('groupsTable');
+  el.innerHTML = '<p class="tiny">加载中…</p>';
+  try {
+    const d = await apiFetch('/auth/groups');
+    const rows = (d.groups || []).map(g => `<tr>
+      <td>${esc(g.name)}</td>
+      <td>${esc(g.description || '-')}</td>
+      <td>${g.member_count ?? 0} 人</td>
+      <td class="tiny">${fmtTsStr(g.created_at)}</td>
+      <td style="white-space:nowrap">
+        <button class="btn ghost" onclick="openGroupModal('${esc(g.id)}','${esc(g.name.replace(/'/g, '\\\''))}','${esc((g.description||'').replace(/'/g, '\\\''))}')">编辑</button>
+        <button class="btn ghost" onclick="openGroupMembers('${esc(g.id)}','${esc(g.name.replace(/'/g, '\\\''))}')">成员</button>
+        <button class="btn danger" onclick="delGroup('${esc(g.id)}','${esc(g.name.replace(/'/g, '\\\''))}')">删除</button>
+      </td></tr>`).join('');
+    el.innerHTML = `<table class="grid"><thead><tr><th>组名</th><th>描述</th><th>成员数</th><th>创建时间</th><th>操作</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="5" class="tiny">暂无用户组</td></tr>'}</tbody></table>`;
+  } catch (e) { el.innerHTML = `<p class="tiny">加载失败: ${esc(e.message)}</p>`; }
+}
+let _editingGroupId = null;
+async function openGroupModal(id, name, desc) {
+  _editingGroupId = id || null;
+  const isAdd = !_editingGroupId;
+  const html = `<div class="cat-modal open" onclick="if(event.target===this)closeGroupModal()">
+    <div class="box"><h3>${isAdd?'新增用户组':'编辑用户组'}</h3>
+      <label>组名 *<input id="gName" value="${isAdd?'':esc(name||'')}" placeholder="如：运维团队"></label>
+      <label>描述<textarea id="gDesc" rows="2" placeholder="如：负责日常运维与故障处理">${isAdd?'':esc(desc||'')}</textarea></label>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+        <button class="btn" onclick="closeGroupModal()">取消</button>
+        <button class="btn primary" onclick="submitGroup()">保存</button></div>
+    </div></div>`;
+  document.getElementById('groupsPanel').insertAdjacentHTML('beforeend', html);
+}
+// 编辑时回填描述: 传入当前 description(由行内按钮带上)
+async function submitGroup() {
+  const gname = document.getElementById('gName')?.value?.trim();
+  const desc = document.getElementById('gDesc')?.value || '';
+  if (!gname) return alert('组名必填');
+  if (!_editingGroupId) {
+    await apiFetch('/auth/groups', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name: gname, description: desc }) });
+  } else {
+    await apiFetch('/auth/groups/' + encodeURIComponent(_editingGroupId), { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name: gname, description: desc }) });
+  }
+  closeGroupModal(); loadGroups();
+}
+async function delGroup(id, name) {
+  if (!confirm('删除用户组 ' + (name||id) + '？（组内仍有用户将被拒绝）')) return;
+  try { await apiFetch('/auth/groups/' + encodeURIComponent(id), { method: 'DELETE' }); loadGroups(); }
+  catch (e) { alert(e.message); }
+}
+let _memberGroupId = null;
+async function openGroupMembers(id, name) {
+  _memberGroupId = id;
+  const [gm, users] = await Promise.all([
+    apiFetch('/auth/groups/' + encodeURIComponent(id) + '/members'),
+    apiFetch('/auth/users')
+  ]);
+  const cur = new Set((gm.members || []).map(m => m.id));
+  const userOpts = (users.users || []).map(u =>
+    `<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" value="${esc(u.id)}" data-mid ${cur.has(u.id)?'checked':''}> ${esc(u.username)} (${esc(u.role || 'member')})</label>`).join('');
+  const html = `<div class="cat-modal open" onclick="if(event.target===this)closeMemberModal()">
+    <div class="box"><h3>组成员 · ${esc(name)}</h3>
+      <div class="tiny" style="margin-bottom:8px">勾选用户并保存，即设置成员列表</div>
+      <div style="max-height:50vh;overflow:auto;display:flex;flex-direction:column;gap:4px">${userOpts || '<span class="tiny">暂无可用用户</span>'}</div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+        <button class="btn" onclick="closeMemberModal()">取消</button>
+        <button class="btn primary" onclick="submitMembers()">保存成员</button></div>
+    </div></div>`;
+  document.getElementById('groupsPanel').insertAdjacentHTML('beforeend', html);
+}
+function closeMemberModal() { document.querySelectorAll('#groupsPanel .cat-modal').forEach(x => x.remove()); }
+function closeGroupModal() { document.querySelectorAll('#groupsPanel .cat-modal').forEach(x => x.remove()); }
+async function submitMembers() {
+  const ids = Array.from(document.querySelectorAll('[data-mid]:checked')).map(x => x.value);
+  await apiFetch('/auth/groups/' + encodeURIComponent(_memberGroupId) + '/members', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ user_ids: ids }) });
+  closeMemberModal(); loadGroups();
+}
+
+/* ---------- 分类授权矩阵 ---------- */
+async function loadGrants() {
+  const el = document.getElementById('grantsMatrix');
+  el.innerHTML = '<p class="tiny">加载中…</p>';
+  try {
+    const [m, cat] = await Promise.all([apiFetch('/categories/grants/matrix'), apiFetch('/categories')]);
+    const gps = m.groups || [];
+    const cats = m.categories || [];
+    const cells = m.cells || {};
+    const metaNames = new Map((cat.categories || []).map(c => [c.name, c.doc_count ?? 0]));
+    if (!gps.length) { el.innerHTML = '<p class="tiny">暂无用户组，请先在「用户组」标签创建。</p>'; return; }
+    if (!cats.length) { el.innerHTML = '<p class="tiny">暂无知识库分类。请在「知识库」标签上传文档时选择分类，或调用分类管理接口创建。</p>'; loadCatList(); return; }
+    // 内置管理员组默认全权限, 固定展示为"全部", 不参与勾选
+    const isBuiltinAdmin = g => (g.name || '').toLowerCase() === 'admin';
+    const thead = `<tr><th style="text-align:left">分类 \\ 用户组</th>${
+      gps.map(g => `<th>${isBuiltinAdmin(g)
+        ? `<b>${esc(g.name)}</b><br><span class="tiny">✅ 全部</span>`
+        : esc(g.name)}</th>`).join('')
+    }</tr>`;
+    const tbody = cats.map(cn => {
+      const catTds = gps.map(g => {
+        if (isBuiltinAdmin(g)) {
+          return `<td style="text-align:center"><span class="tiny" title="管理员默认全部权限">★</span></td>`;
+        }
+        const cell = (cells[g.id] || {})[cn] || { can_read: false, can_manage: false };
+        return `<td style="text-align:center"><label class="tiny"><input type="checkbox" data-g="${esc(g.id)}" data-c="${esc(cn)}" data-k="can_read" ${cell.can_read?'checked':''}> 读</label>
+          <label class="tiny"><input type="checkbox" data-g="${esc(g.id)}" data-c="${esc(cn)}" data-k="can_manage" ${cell.can_manage?'checked':''}> 管</label></td>`;
+      }).join('');
+      return `<tr><td style="text-align:left"><b>${esc(cn)}</b> <span class="tiny">${metaNames.get(cn)||0} 篇</span></td>${catTds}</tr>`;
+    }).join('');
+    el.innerHTML = `<table class="grid" style="min-width:560px"><thead>${thead}</thead><tbody>${
+      tbody || `<tr><td colspan="${gps.length+1}" class="tiny">暂无分类</td></tr>`
+    }</tbody></table>
+      <div class="tiny" style="margin-top:8px">★ 管理员组(admin)默认拥有全部分类的读取与管理权限，无需在此勾选。ops/viewer 及其它用户组按需授权：勾选「读」=可检索该分类文档；勾选「管」=可上传/编辑/删除该分类文档。</div>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+        <button class="btn" onclick="saveGrantChanges()">💾 保存授权变更</button>
+        <span class="status" id="grantStatus"></span></div>`;
+  } catch (e) { el.innerHTML = `<p class="tiny">加载失败: ${esc(e.message)}</p>`; }
+}
+async function saveGrantChanges() {
+  const changed = [];
+  document.querySelectorAll('#grantsMatrix input[type=checkbox]').forEach(cb => {
+    changed.push({ group_id: cb.dataset.g, category: cb.dataset.c, can_read: cb.checked && cb.dataset.k==='can_read', can_manage: cb.checked && cb.dataset.k==='can_manage' });
+  });
+  // 每个 (group, category) 合并读/管两个勾选
+  const map = new Map();
+  changed.forEach(c => {
+    const k = c.group_id + '\u0000' + c.category;
+    const o = map.get(k) || { group_id: c.group_id, category: c.category, can_read: false, can_manage: false };
+    if (c.can_read) o.can_read = true;
+    if (c.can_manage) o.can_manage = true;
+    map.set(k, o);
+  });
+  const st = document.getElementById('grantStatus');
+  st.textContent = '保存中…';
+  try {
+    for (const grant of map.values()) {
+      await apiFetch('/categories/grants', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(grant) });
+    }
+    st.textContent = '✅ 已保存 ' + map.size + ' 项授权';
+  } catch (e) { st.textContent = '保存失败: ' + e.message; }
+}
+
+/* ---------------- 工单管理 (ticket tab) ---------------- */
+const T_STAT_CLS = { 'pending':'st-pending','processing':'st-processing','resolved':'st-resolved','closed':'st-closed' };
+let tOff = 0, tTypesLoaded = false, tDetailOpen = null;
+function tStPill(s){ const cn={pending:'待处理',processing:'处理中',resolved:'已解决',closed:'已关闭'}[s]||s; return `<span class="pill ${T_STAT_CLS[s]||''}">${cn}</span>`; }
+function tFmt(ts){ if(!ts)return '—'; const d=new Date(ts*1000),p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; }
+function initTicket(){ if(tDetailOpen) tBack(); loadTicketStats(); ticketList(); }
+function ticketFilter(){ tOff=0; ticketList(); }
+function ticketParams(){ let qs=`limit=20&offset=${tOff}`;
+  const s=document.getElementById('tStatus').value, ty=document.getElementById('tType').value, u=document.getElementById('tUrgent').value;
+  if(s)qs+='&status='+s; if(ty)qs+='&ticket_type='+encodeURIComponent(ty); if(u)qs+='&urgent='+u; return qs; }
+async function ticketList(){
+  const el=document.getElementById('ticketList'); el.innerHTML='<p class="tiny">加载中…</p>';
+  try{
+    const d=await apiFetch('/tickets/admin?'+ticketParams());
+    if(!document.getElementById('tType').options.length){
+      (d.type_options||[]).forEach(x=>{const o=document.createElement('option');o.value=x;o.textContent=x;document.getElementById('tType').appendChild(o);});
+    }
+    const reminded=new Set(d.reminded||[]);
+    const tb=(d.tickets||[]).map(t=>{
+      const rg=t.urgency==='urgent';
+      return `<tr class="${rg?'urgent':''}" style="${rg?'background:#fff7f7':''}">
+        <td><b>${esc(t.id)}</b></td>
+        <td>${esc(t.ticket_type)}</td>
+        <td style="max-width:240px">${esc(t.title)}</td>
+        <td class="tiny">${esc(t.creator_name)}</td>
+        <td>${rg?'<span class="pill tag-urgent">紧急</span>':'普通'}</td>
+        <td>${tStPill(t.status)}</td>
+        <td class="tiny">${tFmt(t.created_at)}</td>
+        <td>${reminded.has(t.id)?'<span class="pill st-pending">⚠️ 已催办</span>':''}</td>
+        <td><button class="btn" onclick="tShowDetail('${t.id}')">详情</button></td></tr>`;
+    }).join('');
+    el.innerHTML=
+      `<table class="grid"><thead><tr><th>编号</th><th>类型</th><th>标题</th><th>提交人</th><th>紧急</th><th>状态</th><th>提交时间</th><th>催办</th><th></th></tr></thead><tbody>${
+        tb||`<tr><td colspan="9" class="tiny">暂无工单</td></tr>`
+      }</tbody></table>
+      <div style="margin-top:8px;display:flex;gap:12px;align-items:center;font-size:12px;color:var(--muted)">
+        <span>共 ${d.total} 条</span>
+        ${tOff>0?`<a href="javascript:void(0)" onclick="tOff-=20;ticketList()">← 上一页</a>`:''}
+        ${d.total>tOff+d.tickets.length?`<a href="javascript:void(0)" onclick="tOff+=20;ticketList()">下一页 →</a>`:''}
+      </div>`;
+  }catch(e){ el.innerHTML=`<p class="tiny">加载失败: ${esc(e.message)}</p>`; }
+}
+async function loadTicketStats(){
+  const el=document.getElementById('ticketStats'); el.innerHTML='<p class="tiny">统计加载中…</p>';
+  try{
+    const d=await apiFetch('/tickets/admin/stats');
+    const sc=d.by_status_cn||{};
+    const k=(v,l)=>`<div style="text-align:center;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:8px 14px;min-width:72px"><b style="font-size:18px">${v}</b><div class="tiny">${l}</div></div>`;
+    const typeStr=Object.entries(d.by_type||{}).map(([k,v])=>`${esc(k)} ${v}`).join(' · ')||'暂无';
+    const trend=(d.trend||[]).slice(-14).map(t=>`${t.day}:${t.count}`).join(' · ');
+    el.innerHTML=`<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:stretch">
+      ${k(d.total||0,'总数')}${k(sc['待处理']||0,'待处理')}${k(sc['处理中']||0,'处理中')}${k(sc['已解决']||0,'已解决')}${k(sc['已关闭']||0,'已关闭')}
+      <div style="text-align:center;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:8px 14px"><div class="tiny">平均处理时长</div><b style="font-size:15px">${d.avg_handle_hours?'约 '+d.avg_handle_hours+' 小时':'—'}</b></div>
+    </div>
+    <div class="tiny" style="margin-top:8px;color:var(--muted)">按类型：${typeStr}</div>
+    ${trend?`<div class="tiny" style="margin-top:4px;color:var(--muted)">近14天提交趋势：${trend}</div>`:''}`;
+  }catch(e){ el.innerHTML=`<p class="tiny">统计加载失败: ${esc(e.message)}</p>`; }
+}
+async function tShowDetail(id){
+  tDetailOpen=id; const el=document.getElementById('ticketList'); el.innerHTML='<p class="tiny">加载中…</p>';
+  try{
+    const t=await apiFetch('/tickets/admin/'+id);
+    const repl=(t.replies||[]).slice().reverse();
+    const canNext = t.status!=='closed';
+    const btnHtml=t.status==='pending'?`<button class="btn" onclick="tSetStatus('processing')">→ 处理中</button>`
+      :t.status==='processing'?`<button class="btn" onclick="tSetStatus('resolved')">→ 已解决</button>`
+      :t.status==='resolved'?`<button class="btn btn-ok" onclick="tSetStatus('closed')">→ 已关闭</button>`:'';
+    el.innerHTML=`<button class="btn" onclick="tBack()">← 返回工单列表</button>
+      <div class="card" style="margin-top:12px">
+        <h3>#${esc(t.id)} <span style="float:right">${tStPill(t.status)}</span></h3>
+        <div class="kv small">
+          <span>提交人：<b>${esc(t.creator_name)}</b></span>
+          <span>类型：<b>${esc(t.ticket_type)}</b></span>
+          <span>紧急：<b>${t.urgency==='urgent'?'🟠 紧急':'普通'}</b></span>
+          <span>提交时间：<b>${tFmt(t.created_at)}</b></span>
+          ${t.urgency==='urgent'?'<span class="pill tag-urgent">紧急</span>':''}
+        </div>
+        <p class="kv small" style="margin-top:2px"><span>标题：<b>${esc(t.title)}</b></span></p>
+        ${t.attachment_url?`<div class="tiny"><a href="${esc(t.attachment_url)}" target="_blank" rel="noopener">📎 查看附件</a></div>`:''}
+        <div class="desc" style="margin-top:8px">${esc(t.description)||'<span class="muted">(无描述)</span>'}</div>
+        ${canNext?`<div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          ${btnHtml}
+          <input id="tNote" class="form-input" style="flex:1;min-width:200px;padding:8px;border:1px solid var(--border);border-radius:8px" placeholder="处理说明（可选）">
+        </div>`:''}
+      </div>
+      <div class="card">
+        <h4>回复记录</h4>
+        ${t.replies && t.replies.length? repl.map(r=>`<div style="padding:8px 0;border-bottom:1px solid var(--border)">
+          <div class="tiny"><b>${esc(r.author_name)}</b> ${r.is_admin?'<span class="pill st-processing">管理员</span>':''} · ${tFmt(r.created_at)}</div>
+          <div style="margin-top:4px;white-space:pre-wrap">${esc(r.content)}</div></div>`).join(''):'<div class="tiny">暂无回复</div>'}
+        <div style="margin-top:10px"><textarea id="tReply" rows="3" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:8px;font-family:inherit;font-size:13px" placeholder="回复工单提交人（支持 Markdown）…"></textarea>
+        <button class="btn primary" style="margin-top:6px" onclick="tDoReply()">发送回复</button></div>
+      </div>`;
+  }catch(e){ el.innerHTML=`<p class="tiny">加载失败: ${esc(e.message)}</p>`; }
+}
+function tBack(){ tDetailOpen=null; tOff=0; ticketList(); }
+async function tDoReply(){
+  const c=(document.getElementById('tReply')||{}).value?.trim?.();
+  if(!c){alert('请输入回复内容');return;}
+  try{ await apiFetch('/tickets/admin/'+tDetailOpen+'/reply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:c})}); tShowDetail(tDetailOpen); }
+  catch(e){ alert(e.message); }
+}
+async function tSetStatus(st){
+  const note=(document.getElementById('tNote')||{}).value?.trim?.()||'';
+  try{ await apiFetch('/tickets/admin/'+tDetailOpen+'/status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:st,note:note})}); tShowDetail(tDetailOpen); loadTicketStats(); }
+  catch(e){ alert(e.message); }
+}
+
+/* ---------------- 项目文档 (doc tab): README + docs/*.md ---------------- */
+let docItems = [], docCurrent = null;
+function fmtSize(n){ if(n>=1024*1024) return (n/1024/1024).toFixed(1)+' MB'; if(n>=1024) return (n/1024).toFixed(1)+' KB'; return n+' B'; }
+function fmtMtime(ts){ const d=new Date(ts*1000), p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
+async function initDoc(){
+  if(!docItems.length) await loadDocList();
+  if(docCurrent && docItems.some(x=>x.name===docCurrent)) renderDoc(docCurrent);
+}
+async function loadDocList(){
+  const listEl=document.getElementById('docList');
+  listEl.innerHTML='<div style="padding:8px 10px;color:var(--muted)">加载中…</div>';
+  try{
+    const d=await apiFetch('/project-docs');
+    docItems=d.docs||[];
+    listEl.innerHTML=(docItems.length?'':'<div style="padding:8px 10px;color:var(--muted)">暂无文档</div>')
+      +docItems.map(x=>`<div class="doc-li" data-n="${esc(x.name)}" style="padding:8px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:2px">
+        <span>${esc(x.root?'README.md':x.name)}</span>
+        <span style="font-size:11px;color:var(--muted)">${esc(x.path)} · ${fmtSize(x.size)} · ${fmtMtime(x.mtime)}</span></div>`).join('');
+    listEl.querySelectorAll('.doc-li').forEach(el=>{
+      el.onclick=()=>renderDoc(el.dataset.n);
+    });
+  }catch(e){ listEl.innerHTML=`<div style="padding:8px 10px;color:var(--err)">加载失败: ${esc(e.message)}</div>`; }
+}
+async function renderDoc(name){
+  const body=document.getElementById('docBody');
+  docCurrent=name;
+  // 高亮选中
+  document.querySelectorAll('.doc-li').forEach(x=>{ x.style.background = x.dataset.n===name ? '#eef4ff' : ''; });
+  body.innerHTML='<div class="tiny" style="color:var(--muted)">加载中…</div>';
+  try{
+    const d=await apiFetch('/project-docs/'+encodeURIComponent(name));
+    let html=String(d.content||'');
+    if(typeof marked!=='undefined'){
+      html=marked.parse(html,{breaks:true,gfm:true});
+      if(typeof DOMPurify!=='undefined') html=DOMPurify.sanitize(html);
+    }
+    body.innerHTML=`<div style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+        <b>${esc(d.path)}</b><span class="tiny">${fmtSize((d.content||'').length)}</span></div>
+      <div class="doc-md" style="font-size:14px;line-height:1.7;word-break:break-word">${html}</div>
+      <style>.doc-md h1,.doc-md h2,.doc-md h3{margin:14px 0 8px;line-height:1.4}.doc-md h1{font-size:22px;border-bottom:1px solid var(--border);padding-bottom:6px}.doc-md h2{font-size:18px}.doc-md h3{font-size:15px}.doc-md pre,.doc-md code{background:#f4f6fa;border-radius:6px}.doc-md pre{padding:10px 12px;overflow:auto}.doc-md code{padding:1px 5px;font-family:"SFMono-Regular",Consolas,monospace;font-size:12.5px}.doc-md pre code{padding:0;background:none}.doc-md table{border-collapse:collapse;margin:8px 0}.doc-md th,.doc-md td{border:1px solid var(--border);padding:6px 10px;font-size:13px}.doc-md ul,.doc-md ol{padding-left:22px;margin:6px 0}.doc-md blockquote{color:var(--muted);border-left:3px solid var(--border);padding-left:10px;margin:8px 0}.doc-md img{max-width:100%;height:auto}.doc-md a{color:var(--primary)}</style>`;
+  }catch(e){ body.innerHTML=`<p class="tiny" style="color:var(--err)">加载失败: ${esc(e.message)}</p>`; }
+}
+</script>
+  </main>
+</div>
+</body>
+</html>

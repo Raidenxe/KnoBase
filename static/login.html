@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>登录 - RAG 智能助手</title>
+<style>
+  :root {
+    --bg: #f4f6fa; --panel: #ffffff; --border: #e4e8ef; --text: #1f2733;
+    --muted: #6b7688; --primary: #2563eb; --primary-weak: #e8effd;
+    --err: #dc2626; --ok: #16a34a; --radius: 12px;
+    --grad: linear-gradient(135deg,#2563eb,#7c3aed); --heading:#111827;
+    --shadow-sm: 0 1px 3px rgba(16,24,40,.08); --shadow-md: 0 16px 40px rgba(30,41,82,.14);
+    --ring: 0 0 0 3px rgba(37,99,235,.16);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    background:
+      radial-gradient(900px 480px at 15% 0%, #eef3fb 0%, transparent 55%),
+      radial-gradient(800px 500px at 110% 100%, #eef1fc 0%, transparent 55%),
+      var(--bg);
+    color: var(--text);
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  }
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 40px; width: 380px; max-width: 90vw;
+    box-shadow: var(--shadow-md);
+  }
+  .card .brand { text-align: center; margin-bottom: 32px; }
+  .card .brand .logo {
+    width: 48px; height: 48px; border-radius: 12px;
+    background: linear-gradient(135deg,#2563eb,#7c3aed);
+    display: inline-flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 24px; margin-bottom: 12px;
+  }
+  .card .brand h1 { font-size: 18px; }
+  .card .brand p { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  .field { margin-bottom: 18px; }
+  .field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--muted); }
+  .field input {
+    width: 100%; padding: 10px 14px; border: 1px solid var(--border);
+    border-radius: 8px; font-size: 14px; font-family: inherit; outline: none;
+    transition: border-color .2s;
+  }
+  .field input { transition: border-color .2s, box-shadow .2s; }
+  .field input:focus { border-color: var(--primary); box-shadow: var(--ring); outline: none; }
+  .btn {
+    width: 100%; padding: 11px; border: none; border-radius: 8px;
+    background: var(--grad); color: #fff; font-size: 15px; cursor: pointer;
+    margin-top: 6px; box-shadow: 0 6px 16px rgba(37,99,235,.26);
+    transition: transform .15s, box-shadow .15s, opacity .15s;
+  }
+  .btn:hover:not(:disabled) { opacity: 1; transform: translateY(-1px); box-shadow: 0 8px 20px rgba(37,99,235,.32); }
+  .btn:disabled { background: #b6c4e0; box-shadow: none; cursor: not-allowed; }
+  .error { color: var(--err); font-size: 13px; text-align: center; margin-top: 12px; display: none; }
+  .error.show { display: block; }
+  .info { color: var(--muted); font-size: 12px; text-align: center; margin-top: 16px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="brand">
+    <div class="logo">保</div>
+    <h1>RAG 智能助手</h1>
+    <p>RAG 检索增强 · 多租户 RBAC</p>
+  </div>
+  <form id="loginForm" onsubmit="return handleLogin(event)">
+    <div class="field">
+      <label for="username">用户名</label>
+      <input id="username" type="text" autocomplete="username" required autofocus>
+    </div>
+    <div class="field">
+      <label for="password">密码</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+    </div>
+    <button type="submit" class="btn" id="submitBtn">登 录</button>
+    <div class="error" id="errorMsg"></div>
+  </form>
+  <div class="info" id="modeInfo"></div>
+</div>
+
+<script>
+const API = '/api/v1';
+
+async function checkAuthMode() {
+  try {
+    const resp = await fetch(API + '/auth/login', { method: 'POST', body: '{}' });
+    // 200/401/422 = auth on; 404 = auth off
+    if (resp.status === 404) {
+      document.getElementById('modeInfo').textContent = '当前为演示模式，无需登录';
+      window.location.href = '/';
+      return false;
+    }
+    return true;
+  } catch {
+    return true;
+  }
+}
+
+async function handleLogin(e) {
+  e.preventDefault();
+  const btn = document.getElementById('submitBtn');
+  const err = document.getElementById('errorMsg');
+  err.classList.remove('show');
+  btn.disabled = true;
+  btn.textContent = '登录中…';
+
+  try {
+    const resp = await fetch(API + '/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: document.getElementById('username').value.trim(),
+        password: document.getElementById('password').value,
+      }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      throw new Error(data.detail || '用户名或密码错误');
+    }
+    localStorage.setItem('rag_token', data.access_token);
+    localStorage.setItem('rag_user', JSON.stringify(data.user));
+    window.location.href = '/';
+  } catch (ex) {
+    err.textContent = ex.message;
+    err.classList.add('show');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '登 录';
+  }
+}
+
+checkAuthMode();
+</script>
+</body>
+</html>

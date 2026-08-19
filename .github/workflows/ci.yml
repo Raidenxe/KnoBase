@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: pytest (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    env:
+      PYTHONUNBUFFERED: "1"
+      RAG_LLM_PROVIDER: mock
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip wheel
+          pip install -r requirements.txt
+          # fastembed 运行时依赖 onnxruntime/models, 一并预装以保证可复现
+          pip install --quiet onnxruntime
+
+      - name: Run test suite
+        run: python -m pytest tests/ -q --no-header -p no:cacheprovider
+
+      - name: Upload coverage-ish summary
+        if: always()
+        run: echo "tests completed for py${{ matrix.python-version }}"

@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>工单中心 · RAG 智能助手</title>
+<style>
+  :root{
+    --bg:#f4f6fa; --panel:#fff; --border:#e4e8ef; --text:#1f2733;
+    --muted:#6b7688; --primary:#2563eb; --primary-weak:#e8effd;
+    --ok:#16a34a; --warn:#d97706; --err:#dc2626; --radius:12px;
+    --grad:linear-gradient(135deg,#2563eb,#7c3aed); --heading:#111827;
+    --shadow-sm:0 1px 3px rgba(16,24,40,.08); --shadow-md:0 10px 28px rgba(30,41,82,.12);
+    --ring:0 0 0 3px rgba(37,99,235,.16);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+  a{color:var(--primary);text-decoration:none}
+  .top{display:flex;align-items:center;gap:14px;padding:14px 20px;background:var(--panel);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+  .top .logo{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#2563eb,#7c3aed);display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:15px}
+  .top h1{font-size:16px}
+  .top .back{margin-left:auto;font-size:13px;color:var(--muted)}
+  .tabs{display:flex;gap:4px;padding:12px 20px 0;border-bottom:1px solid var(--border)}
+  .tabs button{border:none;background:none;padding:10px 16px;font-size:14px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent}
+  .tabs button.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:600}
+  .wrap{max-width:960px;margin:16px auto;padding:0 20px 60px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px}
+  .muted{color:var(--muted);font-size:12px}
+  .btn{border:1px solid var(--border);background:var(--panel);border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer;color:var(--text)}
+  .btn.primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+  .btn.ok{background:var(--ok);color:#fff;border-color:var(--ok)}
+  .btn.warn{background:var(--warn);color:#fff;border-color:var(--warn)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn:hover:not(:disabled){opacity:.9}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;white-space:nowrap}
+  tr.row{cursor:pointer}
+  tr.row:hover{background:#f8fafc}
+  .pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:14px;line-height:1.5}
+  .st-pending{background:#fef3c7;color:#b45309}
+  .st-processing{background:#dbeafe;color:#1d4ed8}
+  .st-resolved{background:#dcfce7;color:#15803d}
+  .st-closed{background:#e2e8f0;color:#475569}
+  .urgent{border-left:4px solid var(--err)}
+  .tag-urgent{background:#fee2e2;color:#b91c1c}
+  /* 表单 */
+  .form label{display:block;font-size:13px;color:var(--muted);margin:12px 0 6px}
+  .form input[type=text],.form select,.form textarea{width:100%;border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit;background:#fff;color:var(--text)}
+  .form textarea{min-height:120px;resize:vertical}
+  .form .req{color:var(--err)}
+  .radio{display:inline-flex;align-items:center;gap:6px;margin-right:18px;font-size:13px}
+  .warn-opt{margin-top:6px;font-size:12px;color:var(--warn)}
+  /* 详情 */
+  .kv{display:flex;flex-wrap:wrap;gap:8px 22px;font-size:13px;margin:4px 0}
+  .kv b{color:var(--muted);font-weight:600}
+  .desc{white-space:pre-wrap;line-height:1.75;margin-top:10px}
+  .timeline{border-left:2px solid var(--border);margin-left:8px;padding-left:16px}
+  .tl{position:relative;margin:14px 0}
+  .tl::before{content:'';position:absolute;left:-22px;top:4px;width:10px;height:10px;border-radius:50%;background:var(--primary)}
+  .tl.admin::before{background:var(--ok)}
+  .tl .who{font-size:12px;color:var(--muted)}
+  .tl .body{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-top:6px;font-size:13px;line-height:1.7;white-space:pre-wrap}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+  /* 通知 */
+  .nf{display:flex;gap:12px;padding:12px;border:1px solid var(--border);border-radius:10px;margin-bottom:10px;background:var(--panel)}
+  .nf .dot{width:8px;height:8px;border-radius:50%;background:var(--primary);margin-top:6px;flex-shrink:0}
+  .nf.read .dot{background:#cbd5e1}
+  .nf .tt{font-size:13px;font-weight:600;cursor:pointer}
+  .nf .tt:hover{color:var(--primary)}
+  .nf .ct{font-size:12px;color:var(--muted);margin-top:3px}
+  .nf .tm{font-size:11px;color:var(--muted);margin-top:4px}
+  .nf .ops{margin-left:auto;display:flex;flex-direction:column;gap:6px;flex-shrink:0}
+  .nf .ops .btn{font-size:11px;padding:3px 8px}
+  .filters{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+  .filters select,.filters input{border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;background:#fff;color:var(--text);font-family:inherit}
+  .page{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;font-size:13px;color:var(--muted)}
+  .empty{text-align:center;color:var(--muted);padding:44px 0;font-size:13px}
+  .attach{display:inline-flex;align-items:center;gap:6px;background:var(--primary-weak);color:var(--primary);border-radius:6px;padding:4px 10px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="top">
+  <span class="logo">保</span><h1>工单中心</h1>
+  <span class="back"><a href="/">← 返回问答首页</a></span>
+</div>
+<div class="tabs">
+  <button id="tab-mine" class="active" onclick="switchTab('mine')">我的工单</button>
+  <button id="tab-create" onclick="switchTab('create')">提交工单</button>
+  <button id="tab-notify" onclick="switchTab('notify')">通知中心<span id="nBadge" style="display:none;background:var(--err);color:#fff;border-radius:10px;font-size:11px;padding:1px 7px;margin-left:6px"></span></button>
+</div>
+<div class="wrap">
+  <!-- 我的工单 -->
+  <section id="view-mine">
+    <div class="card">
+      <div class="filters">
+        <select id="fStatus" onchange="loadMine()">
+          <option value="">全部状态</option>
+          <option value="pending">待处理</option>
+          <option value="processing">处理中</option>
+          <option value="resolved">已解决</option>
+          <option value="closed">已关闭</option>
+        </select>
+        <select id="fType" onchange="loadMine()">
+          <option value="">全部类型</option>
+        </select>
+        <button class="btn primary" onclick="openCreate()">＋ 提交工单</button>
+      </div>
+      <table>
+        <thead><tr><th>工单编号</th><th>类型</th><th>标题</th><th>状态</th><th>紧急</th><th>提交时间</th><th>最后更新</th></tr></thead>
+        <tbody id="mineBody"></tbody>
+      </table>
+      <div class="page" id="minePage"></div>
+    </div>
+  </section>
+
+  <!-- 提交工单 -->
+  <section id="view-create" style="display:none">
+    <div class="card">
+      <div class="form" id="createForm">
+        <label><span class="req">*</span>工单类型</label>
+        <select id="cType"></select>
+        <label><span class="req">*</span>标题<span class="muted">（限 50 字）</span></label>
+        <input type="text" id="cTitle" maxlength="50" placeholder="一句话概括问题">
+        <label><span class="req">*</span>问题描述<span class="muted">（限 1000 字）</span></label>
+        <textarea id="cDesc" maxlength="1000" placeholder="请详细描述您遇到的问题，便于管理员定位"></textarea>
+        <label>紧急程度</label>
+        <div>
+          <span class="radio"><input type="radio" name="urgency" value="normal" checked> 普通</span>
+          <span class="radio"><input type="radio" name="urgency" value="urgent"> 紧急</span>
+          <div class="warn-opt">紧急工单将被优先处理</div>
+        </div>
+        <label>附件<span class="muted">（可选，单文件 ≤10MB，支持图片/PDF/Word）</span></label>
+        <input type="file" id="cFile" accept="image/*,.pdf,.doc,.docx">
+        <div class="actions">
+          <button class="btn primary" onclick="submitTicket()">提交工单</button>
+        </div>
+        <div id="cResult" style="margin-top:12px"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 通知中心 -->
+  <section id="view-notify" style="display:none">
+    <div class="card">
+      <div class="filters">
+        <select id="nType" onchange="loadNotify(0)">
+          <option value="">全部类型</option>
+          <option value="ticket_status">工单动态</option>
+          <option value="ticket_reply">工单动态 · 回复</option>
+          <option value="announce">系统公告</option>
+          <option value="kb_update">知识库更新</option>
+          <option value="permission">权限变更</option>
+        </select>
+        <button class="btn" onclick="markAllRead()">全部已读</button>
+        <span class="muted" id="nTotal"></span>
+      </div>
+      <div id="notifyList"></div>
+      <div class="page" id="notifyPage"></div>
+    </div>
+  </section>
+
+  <!-- 工单详情 -->
+  <section id="view-detail" style="display:none"></section>
+</div>
+
+<script>
+const API='/api/v1';
+const TYPES=['知识库缺失','答案错误','新文档申请','使用咨询','其他'];
+const NOTIF_TYPES=[['ticket_status','工单动态'],['ticket_reply','工单动态'],['announce','系统公告'],['kb_update','知识库更新'],['permission','权限变更']];
+function authHeaders(){const t=localStorage.getItem('rag_token');return t?{'Authorization':'Bearer '+t}:{};}
+function esc(s){return (s==null?'':String(s)).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function fmtTm(ts){if(!ts)return'';const d=new Date(ts*1000);const p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());}
+function stPill(s){const m={'pending':['待处理','st-pending'],'processing':['处理中','st-processing'],'resolved':['已解决','st-resolved'],'closed':['已关闭','st-closed']};const [l,c]=m[s]||[s,''];return `<span class="pill ${c}">${l}</span>`;}
+async function jfetch(url,opt={}){opt.headers={...(opt.headers||{}),...authHeaders()};const r=await fetch(url,opt);if(r.status===401&&authEnabledThis){location.href='/login.html';throw new Error('未授权');}if(!r.ok){let d={};try{d=await r.json();}catch{}throw new Error(d.detail||d.message||('HTTP '+r.status));}return r.status===204?null:r.json();}
+
+let authEnabledThis=false;
+async function init(){
+  try{
+    const me=await jfetch(API+'/auth/me');
+    document.querySelector('.top h1').textContent='工单中心 · '+me.username;
+    authEnabledThis=true;
+  }catch(e){ /* auth off 演示模式仍可打开 */
+    if(!localStorage.getItem('rag_token')) authEnabledThis=false;
+  }
+}
+// tab
+function switchTab(t){
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+t).classList.add('active');
+  ['mine','create','notify','detail'].forEach(v=>document.getElementById('view-'+v).style.display=(v===t||(t==='create'&&v==='create'))?'':'none');
+  if(t==='create')openCreate();
+  if(t==='notify')initNotify();
+  if(t==='mine')loadMine();
+}
+function openCreate(){
+  if(!document.getElementById('cType').options.length){TYPES.forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;document.getElementById('cType').appendChild(o);});}
+  ['mine','notify','detail'].forEach(v=>document.getElementById('view-'+v).style.display='none');
+  document.getElementById('view-create').style.display='';
+  document.getElementById('cResult').innerHTML='';
+}
+window.openCreate=openCreate;
+
+// ---------- 我的工单 ----------
+let mineOff=0,mineTotal=0;
+async function loadMine(reset){if(reset)mineOff=0;const status=document.getElementById('fStatus').value;const type=document.getElementById('fType').value;const qs=`limit=10&offset=${mineOff}`+(status?`&status=${status}`:'')+(type?`&ticket_type=${encodeURIComponent(type)}`:'');let d;try{d=await jfetch(API+'/tickets?'+qs);}catch(e){document.getElementById('mineBody').innerHTML=`<tr><td colspan="7" class="empty">${esc(e.message)}</td></tr>`;return;}
+  if(!document.getElementById('fType').options.length){const seen=new Set();d.tickets.concat([]).forEach(t=>{if(t.ticket_type&&!seen.has(t.ticket_type)){seen.add(t.ticket_type);const o=document.createElement('option');o.value=t.ticket_type;o.textContent=t.ticket_type;document.getElementById('fType').appendChild(o);}});}
+  mineTotal=d.total;
+  const tb=document.getElementById('mineBody');tb.innerHTML=d.tickets.length?'':'<tr><td colspan="7" class="empty">暂无工单。单击右上角“提交工单”创建。</td></tr>';
+  d.tickets.forEach(t=>{const tr=document.createElement('tr');tr.className='row'+(t.urgency==='urgent'?' urgent':'');tr.innerHTML=`<td>${esc(t.id)}</td><td>${esc(t.ticket_type)}</td><td style="max-width:260px">${esc(t.title)}</td><td>${stPill(t.status)}</td><td>${t.urgency==='urgent'?'<span class="pill tag-urgent">紧急</span>':'普通'}</td><td>${fmtTm(t.created_at)}</td><td>${fmtTm(t.updated_at)}</td>`;tr.onclick=()=>openDetail(t.id);tb.appendChild(tr);});
+  renderPage(document.getElementById('minePage'),mineOff,mineTotal,10,v=>{mineOff=v;loadMine();});
+}
+function renderPage(el,off,total,size,onGo){el.innerHTML='';if(total<=0)return;const pages=Math.ceil(total/size),cur=Math.floor(off/size)+1;const mk=(v,label,disabled)=>{const b=document.createElement('button');b.className='btn';b.disabled=!!disabled;b.textContent=label;b.style.marginRight='4px';b.onclick=()=>onGo((v-1)*size);el.appendChild(b);};mk(cur-1,'上一页',cur<=1);`<span style="margin:0 8px">${cur}/${pages}</span>`;mk(cur+1,'下一页',cur>=pages);const inf=document.createElement('span');inf.style.margin='0 8px';inf.textContent=`${cur}/${pages} · 共${total}条`;el.appendChild(inf);}
+
+// ---------- 提交 ----------
+function submitTicket(){
+  const fd=new FormData();
+  fd.append('ticket_type',document.getElementById('cType').value);
+  fd.append('title',document.getElementById('cTitle').value.trim());
+  fd.append('description',document.getElementById('cDesc').value.trim());
+  const urg=document.querySelector('input[name=urgency]:checked').value;fd.append('urgency',urg);
+  const f=document.getElementById('cFile').files[0];
+  if(f&&f.size>10*1024*1024){alert('附件不能超过 10MB');return;}
+  if(f)fd.append('attachment',f);
+  if(!fd.get('title')){alert('请填写标题');return;}
+  if(!fd.get('description')){alert('请填写问题描述');return;}
+  jfetch(API+'/tickets',{method:'POST',body:fd}).then(d=>{
+    document.getElementById('cResult').innerHTML=`<div class="card" style="border-color:var(--ok)">
+      <b style="color:var(--ok)">✓ 提交成功</b>
+      <div style="margin-top:6px">工单编号：<b>${esc(d.id)}</b></div>
+      <div class="muted" style="margin-top:4px">${esc(d.message)}</div>
+      <div class="actions"><button class="btn" onclick="goDetail('${d.id}')">查看工单</button></div></div>`;
+    document.getElementById('cTitle').value='';document.getElementById('cDesc').value='';document.getElementById('cFile').value='';
+  }).catch(e=>{document.getElementById('cResult').innerHTML=`<div class="muted" style="color:var(--err)">${esc(e.message)}</div>`;});
+}
+
+// ---------- 详情 ----------
+let curTicket=null;
+async function openDetail(id){
+  let d;try{d=await jfetch(API+'/tickets/'+id);}catch(e){alert(e.message);return;}
+  curTicket=d;
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-mine').classList.add('active');
+  ['mine','create','notify'].forEach(v=>document.getElementById('view-'+v).style.display='none');
+  const v=document.getElementById('view-detail');v.style.display='';v.innerHTML='';
+  const el=document.createElement('div');
+  const replies=(d.replies||[]).slice().reverse();
+  el.innerHTML=`<button class="btn" onclick="switchTab('mine')">← 返回工单列表</button>
+    <div class="card" style="margin-top:12px">
+      <h2 style="font-size:17px">工单 #${esc(d.id)}</h2>
+      <div class="kv" style="margin-top:10px">
+        <span><b>类型：</b>${esc(d.ticket_type)}</span>
+        <span><b>状态：</b>${stPill(d.status)}</span>
+        <span><b>紧急程度：</b>${d.urgency==='urgent'?'<span class="pill tag-urgent">紧急</span>':'普通'}</span>
+        <span><b>提交时间：</b>${fmtTm(d.created_at)}</span>
+      </div>
+      <div style="margin-top:14px"><b style="color:var(--muted)">【问题描述】</b><div class="desc">${esc(d.description)}</div></div>
+      ${d.attachment_url?`<div style="margin-top:10px"><b style="color:var(--muted)">附件：</b><a class="attach" href="${esc(d.attachment_url)}" target="_blank">⬇ 下载附件</a></div>`:''}
+      ${d.handle_note?`<div style="margin-top:10px" class="muted">处理说明：${esc(d.handle_note)}</div>`:''}
+    </div>
+    <div class="card">
+      <b style="color:var(--muted)">【回复记录】</b>
+      <div class="timeline" style="margin-top:12px">
+        ${replies.length?replies.map(r=>`<div class="tl ${r.is_admin?'admin':''}">
+          <div class="who">${esc(r.author_name)}${r.is_admin?'（管理员）':''} · ${fmtTm(r.created_at)}</div>
+          <div class="body">${esc(r.content)}</div></div>`).join(''):'<div class="empty" style="padding:16px 0">暂无回复</div>'}
+      </div>
+      ${d.status!=='closed'?`<div style="margin-top:14px">
+        <textarea id="replyBox" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit;min-height:70px" placeholder="补充说明或回复管理员..."></textarea>
+        <button class="btn primary" style="margin-top:8px" onclick="addReply()">发送回复</button>
+      </div>`:''}
+      <div class="actions">
+        ${d.status==='resolved'?`<button class="btn ok" onclick="closeTicket()">确认关闭</button>`:''}
+        ${d.can_remind?`<button class="btn warn" onclick="remindTicket()">催办（剩余${d.remind_count==null?2:d.remind_limit||Math.max(0,2-d.remind_count)}次）</button>`:''}
+        ${d.status==='resolved'?`<button class="btn" onclick="reopenTicket()">重新打开</button>`:''}
+      </div>
+    </div>`;
+  v.appendChild(el);
+}
+async function addReply(){const c=document.getElementById('replyBox').value.trim();if(!c)return;try{await jfetch(API+'/tickets/'+curTicket.id+'/replies',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:c})});}catch(e){alert(e.message);return;}openDetail(curTicket.id);}
+async function remindTicket(){try{const d=await jfetch(API+'/tickets/'+curTicket.id+'/remind',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});alert('已催办。已催办 '+d.remind_count+' 次');}catch(e){alert(e.message);}openDetail(curTicket.id);}
+async function closeTicket(){if(!confirm('确认该问题已解决并关闭工单？关闭后不可再回复。'))return;try{await jfetch(API+'/tickets/'+curTicket.id+'/close',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});alert('工单已关闭');}catch(e){alert(e.message);}openDetail(curTicket.id);}
+async function reopenTicket(){if(!confirm('重新打开工单？（7 天内可重新打开）'))return;try{await jfetch(API+'/tickets/'+curTicket.id+'/reopen',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});alert('已重新打开');}catch(e){alert(e.message);}openDetail(curTicket.id);}
+function goDetail(id){openDetail(id);}
+window.goDetail=goDetail;
+
+// ---------- 通知 ----------
+let nOff=0,nTotal=0;
+function initNotify(){refreshBadge();loadNotify(0);}
+async function refreshBadge(){try{const d=await jfetch(API+'/notifications/unread-count');const b=document.getElementById('nBadge');if(d.unread>0){b.style.display='';b.textContent=' '+d.unread+' ';}else b.style.display='none';}catch{}}
+function typeSel(){return document.getElementById('nType').value;}
+async function loadNotify(reset){if(reset)nOff=0;const t=typeSel();const qs=`limit=10&offset=${nOff}`+(t?`&ntype=${t}`:'');let d;try{d=await jfetch(API+'/notifications?'+qs);}catch(e){document.getElementById('notifyList').innerHTML=`<div class="empty">${esc(e.message)}</div>`;return;}
+  nTotal=d.total;
+  document.getElementById('nTotal').textContent='共'+d.total+'条'+(d.unread?' · '+d.unread+'未读':'');
+  const list=document.getElementById('notifyList');list.innerHTML=d.notifications.length?'':'<div class="empty">暂无通知</div>';
+  d.notifications.forEach(n=>{const el=document.createElement('div');el.className='nf'+(n.is_read?' read':'');
+    el.innerHTML=`<span class="dot"></span>
+      <div style="flex:1;min-width:0"><div class="tt" onclick="notifyGo('${esc(n.link)}')">${esc(n.title)}</div>
+      ${n.content?`<div class="ct">${esc(n.content)}</div>`:''}<div class="tm">${fmtTm(n.created_at)} ${n.is_read?'':'· 未读'}</div></div>
+      <div class="ops">
+        ${n.is_read?'':'<button class="btn" onclick="markRead(\''+n.id+'\')">标记已读</button>'}
+        <button class="btn" onclick="notifyDel(\''+n.id+'\')">删除</button>
+      </div>`;
+    list.appendChild(el);});
+  renderPage(document.getElementById('notifyPage'),nOff,nTotal,10,v=>{nOff=v;loadNotify();});
+  refreshBadge();
+}
+function notifyGo(link){if(link){window.open(link,'_blank');} }
+async function markRead(id){try{await jfetch(API+'/notifications/'+id+'/read',{method:'POST'});}catch(e){alert(e.message);}loadNotify();}
+async function notifyDel(id){try{await jfetch(API+'/notifications/'+id,{method:'DELETE'});}catch(e){alert(e.message);}loadNotify();}
+async function markAllRead(){try{await jfetch(API+'/notifications/read-all',{method:'POST'});}catch(e){alert(e.message);}loadNotify();}
+
+// 初始: 根据查询参数/锚点定位
+(async function initRun(){
+  await init();
+  const params=new URLSearchParams(location.search);const tk=params.get('tk');
+  const h=(location.hash||'').replace('#','');
+  if(tk){openDetail(tk);}
+  else if(h==='create'){switchTab('create');}
+  else if(h==='notify'){switchTab('notify');}
+  else{loadMine();refreshBadge();}
+  window.addEventListener('hashchange',()=>{
+    const hh=(location.hash||'').replace('#','');
+    if(['mine','create','notify'].includes(hh))switchTab(hh);
+  });
+})()
+</script>
+</body>
+</html>

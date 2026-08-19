@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>知识库 · 文档浏览器</title>
+<style>
+  :root {
+    --bg: #f4f6fa; --panel: #ffffff; --border: #e4e8ef; --text: #1f2733;
+    --muted: #6b7688; --primary: #2563eb; --primary-weak: #e8effd;
+    --radius: 12px; --sidebar-w: 280px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    background: var(--bg); color: var(--text); height: 100vh; display: flex;
+  }
+
+  /* ---------- 侧边栏 ---------- */
+  .sidebar {
+    width: var(--sidebar-w); background: var(--panel); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; flex-shrink: 0;
+  }
+  .brand { padding: 18px 16px; border-bottom: 1px solid var(--border); }
+  .brand h1 { font-size: 16px; display: flex; align-items: center; gap: 8px; }
+  .brand .logo { width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(135deg,#2563eb,#7c3aed); display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: 15px; }
+  .brand p { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .back-link { margin: 10px 12px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); font-size: 13px; cursor: pointer; display: block; text-decoration: none; color: var(--text); }
+  .back-link:hover { border-color: var(--primary); }
+  .doc-list-label { font-size: 12px; color: var(--muted); padding: 10px 16px 4px; font-weight: 600; }
+  .doc-list { flex: 1; overflow-y: auto; padding: 0 8px 8px; }
+  .doc-item { padding: 10px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; margin-bottom: 2px; }
+  .doc-item:hover { background: var(--bg); }
+  .doc-item.active { background: var(--primary-weak); color: var(--primary); font-weight: 600; }
+  .doc-item .ct { font-size: 11px; color: var(--muted); font-weight: 400; }
+
+  /* ---------- 主内容区 ---------- */
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .header {
+    padding: 14px 24px; background: var(--panel); border-bottom: 1px solid var(--border);
+    font-size: 14px; display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+  }
+  .header h2 { font-size: 16px; font-weight: 600; }
+  .header .meta { font-size: 12px; color: var(--muted); }
+  .content-area {
+    flex: 1; overflow-y: auto; padding: 24px 5%;
+  }
+
+  /* ---------- Markdown 渲染 ---------- */
+  .doc-content { max-width: 820px; margin: 0 auto; line-height: 1.8; font-size: 14px; }
+  .doc-content h1 { font-size: 22px; margin: 24px 0 12px; padding-bottom: 8px; border-bottom: 2px solid var(--primary); }
+  .doc-content h2 { font-size: 18px; margin: 20px 0 10px; color: #1e293b; }
+  .doc-content h3 { font-size: 16px; margin: 16px 0 8px; }
+  .doc-content p { margin: 8px 0; }
+  .doc-content pre { background: #1e293b; color: #e2e8f0; padding: 14px 18px; border-radius: 8px; overflow-x: auto; font-size: 13px; margin: 12px 0; }
+  .doc-content code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 13px; font-family: "JetBrains Mono", "Fira Code", monospace; }
+  .doc-content pre code { background: none; padding: 0; }
+  .doc-content ul, .doc-content ol { margin: 8px 0; padding-left: 22px; }
+  .doc-content li { margin: 4px 0; }
+  .doc-content blockquote { border-left: 4px solid var(--primary); margin: 12px 0; padding: 8px 16px; background: var(--primary-weak); border-radius: 0 8px 8px 0; }
+  .doc-content table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+  .doc-content th, .doc-content td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
+  .doc-content th { background: var(--bg); font-weight: 600; }
+  .doc-content hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+  .doc-content img { max-width: 100%; border-radius: 8px; }
+  .doc-content h1, .doc-content h2, .doc-content h3, .doc-content h4 { line-height: 1.4; }
+
+  /* ---------- 章节锚点高亮 ---------- */
+  .section-anchor { scroll-margin-top: 80px; }
+  .section-anchor.highlight { background: #fef9c3; border-radius: 4px; padding: 2px 4px; transition: background 1s; }
+  .section-anchor.highlight.done { background: transparent; }
+
+  /* ---------- 空状态 ---------- */
+  .empty-state { text-align: center; margin-top: 15%; color: var(--muted); }
+  .empty-state h2 { font-size: 18px; color: var(--text); margin-bottom: 8px; }
+
+  /* ---------- 加载中 ---------- */
+  .loading { text-align: center; margin-top: 20%; color: var(--muted); }
+  .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* 统一增强 */
+  body { background: radial-gradient(1200px 600px at 100% -10%, #eef3fb 0%, transparent 55%), var(--bg); }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-thumb { background: #cdd5e1; border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
+  .sidebar { box-shadow: var(--shadow-sm); }
+  .brand .logo { box-shadow: 0 6px 14px rgba(79,70,229,.24); }
+  .back-link { transition: border-color .15s, transform .15s, box-shadow .2s; }
+  .back-link:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+  .doc-item { transition: background .15s, transform .15s; }
+  .doc-item:hover { background: #f4f7ff; }
+  .header { box-shadow: var(--shadow-sm); }
+  .doc-content { line-height: 1.85; }
+  .doc-content pre { box-shadow: var(--shadow-sm); }
+  .doc-content h1 { color: var(--heading); }
+  .doc-content blockquote { border-left: 3px solid var(--primary); background: #f5f8ff; }
+</style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <h1><span class="logo">保</span>知识库</h1>
+      <p>文档浏览器 · 来源可追溯</p>
+    </div>
+    <a class="back-link" href="/">← 返回聊天</a>
+    <a class="back-link" href="/admin.html#kb" target="_blank" id="mgmtLink" style="display:none">⚙️ 知识库管理（上传 / 编辑 / 删除）</a>
+    <div class="doc-list-label">📚 文档列表</div>
+    <div class="doc-list" id="docList"></div>
+  </aside>
+
+  <main class="main">
+    <div class="header" id="header">
+      <h2 id="docTitle">选择一篇文档</h2>
+      <span class="meta" id="docMeta"></span>
+    </div>
+    <div class="content-area" id="contentArea">
+      <div class="empty-state" id="emptyState">
+        <h2>📖 知识库文档浏览器</h2>
+        <div>从左侧列表选择一篇文档，查看全文内容。<br>
+        在聊天界面点击引用来源中的 <sup style="color:var(--primary);font-weight:700;">[n]</sup> 编号，也可跳转至此页面定位到对应章节。</div>
+      </div>
+      <div class="doc-content" id="docContent" style="display:none;"></div>
+    </div>
+  </main>
+
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<script>
+const API = '/api/v1';
+let allDocs = [];
+
+/* ---------------- 认证: 附带 JWT, 401 跳转登录 ---------------- */
+function authHeaders() {
+  const token = localStorage.getItem('rag_token');
+  return token ? { 'Authorization': 'Bearer ' + token } : {};
+}
+async function authFetch(url, options = {}) {
+  options.headers = { ...(options.headers || {}), ...authHeaders() };
+  const resp = await fetch(url, options);
+  if (resp.status === 401) {
+    window.location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search);
+    throw new Error('未授权，请先登录');
+  }
+  return resp;
+}
+
+/* ---------------- 加载文档列表 ---------------- */
+async function loadDocs() {
+  const list = document.getElementById('docList');
+  try {
+    const resp = await authFetch(API + '/documents');
+    const data = await resp.json();
+    allDocs = data.documents || [];
+    // 分类分组展示: 未分类的文档放在最后
+    const grouped = {};
+    for (const d of allDocs) {
+      const key = d.category || '__none__';
+      (grouped[key] = grouped[key] || []).push(d);
+    }
+    const catOrder = Object.keys(grouped).sort((a, b) => (a === '__none__') - (b === '__none__'));
+    list.innerHTML = allDocs.length === 0
+      ? '<div style="padding:12px;color:var(--muted);font-size:13px;">知识库为空</div>'
+      : catOrder.map(catKey => `
+          <div class="doc-list-label" style="margin-top:6px;">${
+            catKey === '__none__' ? '📂 未分类' : '🏷 ' + escapeHtml(catKey)
+          }</div>
+          ${grouped[catKey].map(d => `
+            <div class="doc-item" data-doc-id="${escapeHtml(d.doc_id)}" onclick="openDoc('${escapeHtml(d.doc_id)}')">
+              ${escapeHtml(d.doc_name)}
+              <span class="ct">${d.chunks} 块${d.access_scope === 'private' ? ' · 🔒' : ''}</span>
+            </div>`).join('')}`).join('');
+  } catch (e) {
+    list.innerHTML = '<div style="padding:12px;color:var(--err);font-size:13px;">加载失败: ' + e.message + '</div>';
+  }
+}
+
+/* ---------------- 打开文档 ---------------- */
+async function openDoc(docId, highlightSection) {
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('docContent').style.display = 'block';
+  document.getElementById('docContent').innerHTML = '<div class="loading"><div class="spinner"></div><div>加载中…</div></div>';
+
+  // 高亮文档列表
+  document.querySelectorAll('.doc-item').forEach(el => el.classList.remove('active'));
+  const activeItem = document.querySelector(`.doc-item[data-doc-id="${docId}"]`);
+  if (activeItem) activeItem.classList.add('active');
+
+  try {
+    const resp = await authFetch(API + '/documents/' + docId + '/content');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    document.getElementById('docTitle').textContent = '📄 ' + data.doc_name;
+    document.getElementById('docMeta').textContent = data.chunks.length + ' 个知识块';
+
+    // 聚合相似章节区块, 渲染为连续 Markdown
+    let html = '';
+    let prevSection = '';
+    let no = 0;
+    for (const c of data.chunks) {
+      no++;
+      if (c.section_path && c.section_path !== prevSection) {
+        if (prevSection) html += '\n\n';
+        // 用章节路径作为锚点ID
+        const anchorId = 'section-' + c.chunk_index;
+        html += `<div class="section-anchor" id="${anchorId}" data-section="${escapeHtml(c.section_path)}">`;
+        // 以 h3 渲染章节标题
+        html += `<h3>📑 ${escapeHtml(c.section_path)}</h3>`;
+        prevSection = c.section_path;
+      } else {
+        html += '<div class="section-anchor" id="section-' + c.chunk_index + '">';
+      }
+      // 渲染正文
+      html += '<div class="chunk-text">' + renderMarkdown(c.text) + '</div></div>';
+    }
+
+    document.getElementById('docContent').innerHTML = html;
+
+    // 如果指定了高亮章节, 滚动到对应锚点
+    if (highlightSection) {
+      const target = document.getElementById(highlightSection);
+      if (target) {
+        setTimeout(() => {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          target.classList.add('highlight');
+          setTimeout(() => target.classList.add('done'), 2000);
+        }, 300);
+      }
+    }
+
+    // 更新 URL hash
+    if (highlightSection) {
+      history.replaceState(null, '', '/documents-browser?doc=' + docId + '&section=' + highlightSection);
+    } else {
+      history.replaceState(null, '', '/documents-browser?doc=' + docId);
+    }
+  } catch (e) {
+    document.getElementById('docContent').innerHTML = '<div style="color:var(--err);text-align:center;margin-top:40px;">加载失败: ' + e.message + '</div>';
+  }
+}
+
+/* ---------------- Markdown 渲染 ---------------- */
+function renderMarkdown(text) {
+  // 优先用 marked 完整渲染; CDN 不可用时回退到基础渲染
+  if (typeof marked !== 'undefined') {
+    let raw = text || '';
+    try {
+      raw = marked.parse(raw, { breaks: true });
+      if (typeof DOMPurify !== 'undefined') raw = DOMPurify.sanitize(raw);
+      return raw;
+    } catch (e) { /* fallthrough */ }
+  }
+  // 基础回退
+  let html = escapeHtml(text || '');
+  html = html.replace(/```([\w]*)\n([\s\S]*?)```/g, (_, lang, code) => {
+    return '<pre><code class="lang-' + lang + '">' + escapeHtml(code) + '</code></pre>';
+  });
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\n/g, '<br>');
+  return html;
+}
+
+function escapeHtml(s) {
+  return (s || '').replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+}
+
+/* ---------------- 初始化 ---------------- */
+// 管理员可见“知识库管理”入口（直接进入管理的“知识库”标签）
+async function initMgmt() {
+  try {
+    const resp = await authFetch(API + '/auth/me');
+    if (resp.ok) {
+      const me = await resp.json();
+      if (me.role === 'admin') {
+        document.getElementById('mgmtLink').style.display = 'block';
+      }
+    }
+  } catch (e) { /* 未登录/无权限则隐藏 */ }
+}
+initMgmt();
+
+// 解析 URL 参数: 从聊天引用跳转过来
+const params = new URLSearchParams(location.search);
+const docFromUrl = params.get('doc');
+const sectionFromUrl = params.get('section');
+
+loadDocs().then(() => {
+  if (docFromUrl) {
+    openDoc(docFromUrl, sectionFromUrl);
+  }
+});
+</script>
+</body>
+</html>
