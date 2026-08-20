@@ -14,6 +14,8 @@ class GraphState(TypedDict, total=False):
     tenant_id: str                       # 当前租户(用于检索/生成隔离)
     trace_id: str                        # 全链路追踪 ID
     doc_version: Optional[int]           # 可选: 按版本文档过滤检索(None=全部)
+    images: Optional[List[str]]          # 可选: 多模态图片(URL 或 data URI), 仅生成阶段使用
+    lang: str                           # 可选: 回答语言(zh / en)
 
     # ---- 中间产物 ----
     standalone_question: str             # 指代消解后的独立检索问题

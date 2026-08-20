@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>初始化向导 - RAG 智能助手</title>
+<style>
+  :root {
+    --bg:#f4f6fa; --panel:#fff; --border:#e4e8ef; --text:#1f2733; --muted:#6b7688;
+    --primary:#2563eb; --primary-weak:#e8effd; --err:#dc2626; --ok:#16a34a;
+    --radius:12px; --grad:linear-gradient(135deg,#2563eb,#7c3aed);
+    --shadow-md:0 16px 40px rgba(30,41,82,.14); --ring:0 0 0 3px rgba(37,99,235,.16);
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    background:radial-gradient(900px 480px at 15% 0%,#eef3fb 0%,transparent 55%),var(--bg);
+    color:var(--text); min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;
+  }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    padding:36px 40px; width:520px; max-width:94vw; box-shadow:var(--shadow-md); }
+  .card .brand { text-align:center; margin-bottom:24px; }
+  .card .brand .logo { width:48px;height:48px;border-radius:12px;background:var(--grad);
+    display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:24px;margin-bottom:10px; }
+  .card .brand h1 { font-size:18px; }
+  .card .brand p { font-size:13px;color:var(--muted);margin-top:6px; }
+
+  .steps { display:flex; gap:6px; margin-bottom:24px; }
+  .step { flex:1; text-align:center; font-size:12px; color:var(--muted); position:relative; padding-top:6px; }
+  .step::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; border-radius:3px; background:var(--border); }
+  .step.on::before { background:var(--primary); }
+  .step.done::before { background:var(--ok); }
+  .step.on { color:var(--primary); font-weight:600; }
+
+  .step-panel { display:none; }
+  .step-panel.active { display:block; }
+  .field { margin-bottom:16px; }
+  .field label { display:block; font-size:13px; font-weight:600; margin-bottom:6px; color:var(--muted); }
+  .field input, .field select {
+    width:100%; padding:10px 14px; border:1px solid var(--border); border-radius:8px;
+    font-size:14px; font-family:inherit; outline:none; transition:border-color .2s, box-shadow .2s; background:#fff; }
+  .field input:focus, .field select:focus { border-color:var(--primary); box-shadow:var(--ring); }
+  .hint { font-size:12px; color:var(--muted); margin-top:-6px; margin-bottom:12px; }
+
+  .actions { display:flex; justify-content:space-between; gap:10px; margin-top:20px; }
+  .btn { padding:11px 22px; border:none; border-radius:8px; font-size:14px; cursor:pointer;
+    background:var(--grad); color:#fff; box-shadow:0 6px 16px rgba(37,99,235,.26); transition:transform .15s, opacity .15s; }
+  .btn:hover:not(:disabled) { transform:translateY(-1px); }
+  .btn:disabled { background:#b6c4e0; box-shadow:none; cursor:not-allowed; }
+  .btn.ghost { background:transparent; color:var(--muted); box-shadow:none; border:1px solid var(--border); }
+  .error { color:var(--err); font-size:13px; margin-top:12px; display:none; }
+  .error.show { display:block; }
+  .ok-box { text-align:center; padding:20px 0; }
+  .ok-box .big { font-size:42px; }
+
+  /* ---------- 移动端适配 ---------- */
+  @media(max-width:480px){
+    body { align-items:flex-start; }
+    .card { width:100%; max-width:100vw; border-radius:0; box-shadow:none; border-left:none; border-right:none; padding:28px 20px; }
+    .steps { overflow-x:auto; white-space:nowrap; scrollbar-width:none; }
+    .steps::-webkit-scrollbar { display:none; }
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="brand">
+    <div class="logo">保</div>
+    <h1>RAG 智能助手 · 初始化向导</h1>
+    <p>首次启动 · 三步完成部署</p>
+  </div>
+
+  <div class="steps">
+    <div class="step on" id="st1">创建管理员</div>
+    <div class="step" id="st2">配置 LLM</div>
+    <div class="step" id="st3">导入知识库</div>
+  </div>
+
+  <div class="step-panel active" data-step="1">
+    <div class="field"><label>管理员账号</label>
+      <input id="username" placeholder="至少 3 位" autocomplete="username"></div>
+    <div class="field"><label>登录密码</label>
+      <input id="password" type="password" placeholder="至少 8 位，含大小写与数字" autocomplete="new-password"></div>
+    <div class="field"><label>确认密码</label>
+      <input id="password2" type="password" autocomplete="new-password"></div>
+    <div class="field"><label>显示名称（可选）</label>
+      <input id="displayName" placeholder="例如：系统管理员"></div>
+    <div class="actions"><span></span><button class="btn" onclick="nextStep(1)">下一步</button></div>
+  </div>
+
+  <div class="step-panel" data-step="2">
+    <div class="field"><label>LLM 提供方</label>
+      <select id="llmProvider">
+        <option value="mock">离线抽取式（无 Key，演示/测试）</option>
+        <option value="openai">OpenAI 兼容 API（智谱 GLM / GPT / vLLM 等）</option>
+      </select></div>
+    <div class="field"><label>API Base URL</label>
+      <input id="llmBaseUrl" placeholder="https://open.bigmodel.cn/api/paas/v4"></div>
+    <div class="field"><label>API Key</label>
+      <input id="llmApiKey" type="password" placeholder="仅 openai 模式需要"></div>
+    <div class="field"><label>模型名称</label>
+      <input id="llmModel" placeholder="glm-4-flash"></div>
+    <div class="hint">可稍后在「管理面板 → 模型配置」中修改，运行时热切换无需重启。</div>
+    <div class="actions"><button class="btn ghost" onclick="nextStep(1)">上一步</button><button class="btn" onclick="nextStep(2)">下一步</button></div>
+  </div>
+
+  <div class="step-panel" data-step="3">
+    <div class="field" style="padding:14px;border:1px solid var(--border);border-radius:8px;background:var(--primary-weak);font-size:13px;">
+      完成初始化后，系统将自动扫描 <b>manuals_dir</b> 目录导入知识库（解析 · 切片 · 向量化）。<br>
+      也可选择跳过，稍后在管理面板手动导入。
+    </div>
+    <div class="field" style="display:flex;align-items:center;gap:8px;font-size:14px;">
+      <input type="checkbox" id="importKb" checked style="width:auto;"> 立即导入知识库
+    </div>
+    <div class="actions"><button class="btn ghost" onclick="nextStep(2)">上一步</button><button class="btn" id="finishBtn" onclick="submitSetup()">完成初始化</button></div>
+    <div class="error" id="errMsg"></div>
+  </div>
+</div>
+
+<script>
+const API = '/api/v1';
+let currentStep = 1;
+
+function showStep(n) {
+  currentStep = n;
+  document.querySelectorAll('.step-panel').forEach(p => p.classList.toggle('active', +p.dataset.step === n));
+  ['st1','st2','st3'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.classList.toggle('on', i + 1 === n);
+    el.classList.toggle('done', i + 1 < n);
+  });
+}
+function nextStep(from) {
+  if (from === 1) {
+    const u = document.getElementById('username').value.trim();
+    const p = document.getElementById('password').value;
+    const p2 = document.getElementById('password2').value;
+    if (u.length < 3) return alert('管理员账号至少 3 位');
+    if (p.length < 8) return alert('密码至少 8 位');
+    if (p !== p2) return alert('两次密码不一致');
+  }
+  showStep(from + 1);
+}
+function err(msg) { const e = document.getElementById('errMsg'); e.textContent = msg; e.classList.toggle('show', !!msg); }
+
+async function submitSetup() {
+  const btn = document.getElementById('finishBtn'); btn.disabled = true; btn.textContent = '初始化中…'; err('');
+  try {
+    const resp = await fetch(API + '/setup/bootstrap', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: document.getElementById('username').value.trim(),
+        password: document.getElementById('password').value,
+        display_name: document.getElementById('displayName').value.trim(),
+        llm_provider: document.getElementById('llmProvider').value,
+        llm_base_url: document.getElementById('llmBaseUrl').value.trim(),
+        llm_api_key: document.getElementById('llmApiKey').value.trim(),
+        llm_model: document.getElementById('llmModel').value.trim(),
+        import_kb: document.getElementById('importKb').checked,
+      }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || '初始化失败');
+    setTimeout(() => window.location.href = '/login.html', 800);
+  } catch (ex) { err(ex.message); }
+  finally { btn.disabled = false; btn.textContent = '完成初始化'; }
+}
+
+// 已初始化则跳过向导
+fetch(API + '/setup/status').then(r => r.json()).then(d => {
+  if (!d.needs_setup) window.location.href = '/login.html';
+}).catch(() => {});
+</script>
+</body>
+</html>

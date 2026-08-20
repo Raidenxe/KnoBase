@@ -1,0 +1,106 @@
+# RAG 智能助手 - Docker Compose 部署
+#
+# 默认(单服务, 无需外部依赖): 应用内置 milvus-lite 嵌入式向量库, 开箱即用。
+#   docker compose up -d --build
+#   访问 http://localhost:8000
+#
+# 如需生产级独立 Milvus 集群, 启用 milvus profile:
+#   docker compose --profile milvus up -d --build
+#   RAG_MILVUS_URI=http://milvus:19530 (通过 env 注入, 见下面 rag 服务 env 说明)
+#
+# 数据目录 ./data 以命名卷持久化, 容器重建不丢数据。
+
+name: rag-assistant
+
+services:
+  rag:
+    build: .
+    image: rag-assistant:latest
+    container_name: rag-assistant
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - rag_data:/srv/rag/data
+    environment:
+      # 参考 .env.example, 按需覆盖以下关键项
+      RAG_AUTH_MODE: "${RAG_AUTH_MODE:-off}"
+      RAG_DEFAULT_TENANT: "${RAG_DEFAULT_TENANT:-default}"
+      # LLM: 不配置则使用 mock 演示模式; 配置后走 OpenAI 兼容接口(可对接 GLM/GPT/Qwen)
+      RAG_LLM_PROVIDER: "${RAG_LLM_PROVIDER:-mock}"
+      RAG_LLM_API_KEY: "${RAG_LLM_API_KEY:-}"
+      RAG_LLM_BASE_URL: "${RAG_LLM_BASE_URL:-}"
+      RAG_LLM_MODEL: "${RAG_LLM_MODEL:-}"
+      # 使用独立 Milvus 集群时取消注释:
+      # RAG_MILVUS_URI: "${RAG_MILVUS_URI:-http://milvus:19530}"
+    depends_on: []
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=5).status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+  # ---- 可选: 生产级独立 Milvus 集群(启用: docker compose --profile milvus up) ----
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.5
+    profiles: ["milvus"]
+    container_name: rag-etcd
+    restart: unless-stopped
+    environment:
+      ETCD_AUTO_COMPACTION_MODE: revision
+      ETCD_AUTO_COMPACTION_RETENTION: "1000"
+      ETCD_QUOTA_BACKEND_BYTES: "4294967296"
+      ETCD_SNAPSHOT_COUNT: "50000"
+    volumes:
+      - rag_etcd:/etcd
+    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+
+  minio:
+    image: minio/minio:RELEASE.2023-03-20T20-16-18Z
+    profiles: ["milvus"]
+    container_name: rag-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+    volumes:
+      - rag_minio:/minio_data
+    command: minio server /minio_data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  milvus:
+    image: milvusdb/milvus:v2.4.9
+    profiles: ["milvus"]
+    container_name: rag-milvus
+    restart: unless-stopped
+    command: ["milvus", "run", "standalone"]
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+    volumes:
+      - rag_milvus:/var/lib/milvus
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    depends_on:
+      - etcd
+      - minio
+
+volumes:
+  rag_data:
+    name: rag-data
+  rag_etcd:
+    name: rag-etcd
+  rag_minio:
+    name: rag-minio
+  rag_milvus:
+    name: rag-milvus

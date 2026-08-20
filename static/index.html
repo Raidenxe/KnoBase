@@ -110,6 +110,19 @@ sup.ct{color:var(--primary);cursor:pointer;font-weight:700}
 .cite-card .meta{color:var(--muted);margin:2px 0}
 .cite-card .snippet{color:var(--text);display:none;margin-top:4px;background:var(--bg);padding:6px 8px;border-radius:6px;font-size:12px}
 .cite-card.open .snippet{display:block}
+.retrieved-preview{margin-bottom:16px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel)}
+.retrieved-preview .rp-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#f8faff;cursor:pointer;font-size:13px;font-weight:600;user-select:none}
+.retrieved-preview .rp-header:hover{background:#edf4ff}
+.retrieved-preview .rp-body{padding:4px 14px 12px;display:none}
+.retrieved-preview.open .rp-body{display:block}
+.retrieved-preview .rp-chunk{display:flex;gap:9px;padding:7px 0;border-bottom:1px solid #f0f2f5;font-size:12px;cursor:pointer;transition:background .12s;border-radius:6px;margin:2px -4px;padding:7px 4px}
+.retrieved-preview .rp-chunk:hover{background:var(--primary-weak)}
+.retrieved-preview .rp-chunk:last-child{border-bottom:0}
+.retrieved-preview .rp-idx{width:20px;height:20px;border-radius:50%;background:var(--primary-weak);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px}
+.retrieved-preview .rp-text{color:var(--text);line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:420px}
+.retrieved-preview .rp-meta{color:var(--muted);font-size:11px;margin-top:1px}
+.retrieved-preview .rp-toggle{font-size:10px;color:var(--muted);transition:transform .2s}
+.retrieved-preview.open .rp-toggle{transform:rotate(180deg)}
 .verify-badge{display:inline-block;margin-top:8px;font-size:11px;padding:2px 8px;border-radius:20px}
 .verify-badge.ok{background:#e8f7ee;color:var(--ok)}
 .verify-badge.bad{background:#fdeeee;color:var(--err)}
@@ -201,22 +214,28 @@ sup.ct{color:var(--primary);cursor:pointer;font-weight:700}
   .chat-toolbar{padding:12px 16px 4px}
 }
 </style>
+<script src="/i18n.js"></script>
 </head>
 <body>
   <aside class="sidebar">
     <div class="brand">
-      <div class="logo">保</div>
-      <div class="brand-text"><strong>软件维保助手</strong><span>RAG 检索增强 · 知识即服务</span></div>
+      <div class="logo">K</div>
+      <div class="brand-text"><strong data-i18n="brand_title">KnoBase RAG智能助手</strong><span data-i18n="brand_subtitle">RAG 检索增强 · 知识即服务</span></div>
     </div>
-    <button class="new-chat" onclick="newChat()">＋ 新建会话</button>
+    <button class="new-chat" onclick="newChat()" data-i18n="new_chat">＋ 新建会话</button>
     <div class="sidebar-links">
-      <a href="/documents-browser" target="_blank" style="background:var(--panel);font-weight:500">📖 知识库浏览器</a>
-      <a href="/admin.html" target="_blank" id="adminLink" style="display:none;background:var(--panel);font-weight:500">📊 控制台</a>
+      <a href="/documents-browser" target="_blank" style="background:var(--panel);font-weight:500" data-i18n="kb_browser">📖 知识库浏览器</a>
+      <a href="/admin.html" target="_blank" id="adminLink" style="display:none;background:var(--panel);font-weight:500" data-i18n="admin_console">📊 控制台</a>
     </div>
     <div class="conv-list" id="convList"></div>
     <div class="spacer"></div>
-    <div class="env"><small>当前环境</small><div><span class="dot"></span><span id="envStatus">生产环境</span></div></div>
-    <div class="account"><div class="avatar-small" id="sideAvatar">我</div><div><strong id="sideName">访客</strong><small id="sideRole">未登录</small></div></div>
+    <div class="env"><small data-i18n="env_label">当前环境</small><div><span class="dot"></span><span id="envStatus">生产环境</span></div></div>
+    <div class="account"><div class="avatar-small" id="sideAvatar">我</div><div><strong id="sideName">访客</strong><small id="sideRole">未登录</small></div>
+      <select id="langSelect" onchange="switchLang(this.value)" style="margin-left:auto;border:1px solid var(--line);border-radius:8px;padding:5px 6px;font-size:12px;background:var(--panel);color:var(--text);cursor:pointer">
+        <option value="zh-CN">中文</option>
+        <option value="en-US">English</option>
+      </select>
+    </div>
   </aside>
 
   <main class="main">
@@ -248,7 +267,7 @@ sup.ct{color:var(--primary);cursor:pointer;font-weight:700}
       <div class="workbench" id="empty">
         <div class="wb-greeting">
           <div>
-            <h1>你好，我是软件维保助手 👋</h1>
+            <h1>你好，我是 KnoBase RAG智能助手 👋</h1>
             <p>基于企业知识库回答问题，每个答案都标注来源出处。</p>
           </div>
         </div>
@@ -319,18 +338,21 @@ sup.ct{color:var(--primary);cursor:pointer;font-weight:700}
     </div>
     <div class="input-area">
       <div class="version-bar">
-        <span class="v-label">检索范围：</span>
+        <span class="v-label" data-i18n="search_scope">检索范围：</span>
         <select id="docVersion">
           <option value="">全部版本</option>
         </select>
         <span class="v-tip">按软件版本过滤说明文档，仅检索对应版本</span>
       </div>
+      <div id="imgPreview" style="display:none;margin-bottom:8px;flex-wrap:wrap;gap:8px"></div>
       <div class="input-box">
-        <textarea id="input" rows="1" placeholder="请输入软件维保问题，例如：平台升级前如何备份？"></textarea>
-        <button id="sendBtn" onclick="send()">发送</button>
-        <button id="stopBtn" onclick="stopGen()" style="display:none;background:var(--err)">■ 停止</button>
+        <button type="button" id="imgBtn" onclick="document.getElementById('imgInput').click()" title="上传图片" style="background:transparent;color:var(--muted);padding:8px 10px;flex-shrink:0">🖼️</button>
+        <input type="file" id="imgInput" accept="image/*" multiple style="display:none" onchange="attachImages(this.files)">
+        <textarea id="input" rows="1" placeholder="请输入问题，例如：如何配置知识源？" data-i18n-placeholder="input_placeholder"></textarea>
+        <button id="sendBtn" onclick="send()" data-i18n="send">发送</button>
+        <button id="stopBtn" onclick="stopGen()" style="display:none;background:var(--err)" data-i18n="stop">■ 停止</button>
       </div>
-      <div class="hint">回答均来自产品说明书原文并标注来源；无法确认的信息将明确拒答，避免误导</div>
+      <div class="hint" data-i18n="hint">回答均来自产品说明书原文并标注来源；无法确认的信息将明确拒答，避免误导</div>
     </div>
   </main>
 
@@ -439,6 +461,24 @@ async function bellAllRead() {
 }
 function refreshBell() { loadBell(); }
 setInterval(refreshBell, 60000);
+
+/* P2 通知实时推送：WebSocket 收到新通知即刷新铃铛(无需等轮询) */
+let _notifyWs = null, _notifyWsTimer = null;
+function connectNotifyWS() {
+  if (!authEnabled) return;
+  try {
+    const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
+    let url = proto + location.host + '/api/v1/ws/notify';
+    const token = localStorage.getItem('rag_token');
+    if (token) url += '?token=' + encodeURIComponent(token);
+    _notifyWs = new WebSocket(url);
+    _notifyWs.onmessage = (ev) => {
+      try { const m = JSON.parse(ev.data); if (m.event === 'notification') loadBell(); } catch (e) {}
+    };
+    _notifyWs.onclose = () => { _notifyWsTimer = setTimeout(connectNotifyWS, 5000); };
+    _notifyWs.onerror = () => { try { _notifyWs.close(); } catch (e) {} };
+  } catch (e) {}
+}
 
 /* ---------------- 会话列表 ---------------- */
 async function loadConversations() {
@@ -585,7 +625,7 @@ function renderCitations(bubble, citations, isHistory) {
   const box = document.createElement('div');
   box.className = 'citations';
   box.innerHTML = `<h4>📖 来源引用 (${citations.length})</h4>` + citations.map(c => `
-    <div class="cite-card" onclick="openInKnowledgeBase('${escapeHtml(c.doc_id)}', '${escapeHtml(c.chunk_id || '')}')">
+    <div class="cite-card" data-doc-id="${escapeHtml(c.doc_id)}" data-chunk-id="${escapeHtml(c.chunk_id || '')}" data-index="${c.index}">
       <div class="t">[${c.index}] 《${escapeHtml(c.doc_name)}》</div>
       <div class="meta">${escapeHtml(c.section_path || '')}${c.page > 0 ? ' · 第' + c.page + '页' : ''} · 相关度 ${(c.score * 100).toFixed(0)}%</div>
       <div class="snippet">${escapeHtml(c.snippet || '')}…</div>
@@ -596,9 +636,30 @@ function renderCitations(bubble, citations, isHistory) {
     badge.textContent = '✓ 已通过事实一致性校验';
     box.appendChild(badge);
   }
-  box.querySelectorAll('.cite-card').forEach(card =>
-    card.onclick = () => card.classList.toggle('open'));
+  // 点击引用卡片: 跳转到知识库对应章节(溯源), 同时展开摘要
+  box.querySelectorAll('.cite-card').forEach(card => {
+    card.onclick = () => {
+      card.classList.toggle('open');
+      openInKnowledgeBase(card.dataset.docId, card.dataset.chunkId);
+    };
+  });
   bubble.appendChild(box);
+}
+
+function renderRetrievedChunks(msgEl, chunks) {
+  if (!chunks || !chunks.length) return;
+  const existing = msgEl.querySelector('.retrieved-preview');
+  if (existing) existing.remove();
+  const box = document.createElement('div');
+  box.className = 'retrieved-preview open';
+  box.innerHTML = '<div class="rp-header" onclick="this.parentElement.classList.toggle(\'open\')">' +
+    '🔍 检索到 ' + chunks.length + ' 个相关片段 <span class="rp-toggle">▼</span></div>' +
+    '<div class="rp-body">' + chunks.map(c => '  <div class="rp-chunk" onclick="openInKnowledgeBase(\'' + escapeHtml(c.doc_id) + '\', \'' + escapeHtml(c.chunk_id || '') + '\')">' +
+    '<span class="rp-idx">' + c.index + '</span>' +
+    '<div><div class="rp-text">' + escapeHtml(c.snippet || '') + '…</div>' +
+    '<div class="rp-meta">《' + escapeHtml(c.doc_name) + '》' + (c.section_path ? ' · ' + escapeHtml(c.section_path) : '') + ' · ' + (c.score * 100).toFixed(0) + '%</div></div></div>').join('') +
+    '</div>';
+  msgEl.querySelector('.bubble').before(box);
 }
 
 function renderSuggestions(bubble, suggestions) {
@@ -617,9 +678,29 @@ function renderRichText(bubble, text) {
   bubble.innerHTML = '';
   const pre = document.createElement('div');
   pre.style.whiteSpace = 'pre-wrap';
+  // 引用编号 [n] → 可点击链接，跳转到知识库浏览器对应段落
   pre.innerHTML = escapeHtml(text)
-    .replace(/\[(\d+)\]/g, '<sup class="ct" onclick="flashCite(this)">[$1]</sup>');
+    .replace(/\[(\d+)\]/g, '<sup class="ct" onclick="scrollToCite(this)">[$1]</sup>');
   bubble.appendChild(pre);
+}
+
+function scrollToCite(sup) {
+  // 先尝试在同一条消息中滚动到对应引用卡片
+  const idx = parseInt(sup.textContent.match(/\d+/)[0], 10);
+  const msgEl = sup.closest('.msg.bot');
+  if (msgEl) {
+    const cards = msgEl.querySelectorAll('.cite-card');
+    for (const card of cards) {
+      if (parseInt(card.dataset.index, 10) === idx) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.classList.add('open');
+        return;
+      }
+    }
+  }
+  // 无引用卡片时闪烁提示
+  sup.style.background = '#fef3c7';
+  setTimeout(() => sup.style.background = '', 600);
 }
 
 function renderMsgActions(msgEl, messageId, content) {
@@ -686,13 +767,13 @@ function renderMsgActions(msgEl, messageId, content) {
     setTimeout(() => tip.style.display = 'none', 1500);
   };
 }
-function flashCite(sup) {
-  const cards = sup.closest('.bubble').querySelectorAll('.cite-card');
-  const idx = parseInt(sup.textContent.match(/\d+/)[0]) - 1;
-  if (cards[idx]) { cards[idx].scrollIntoView({ behavior: 'smooth', block: 'center' }); cards[idx].classList.add('open'); }
-}
 function openInKnowledgeBase(docId, chunkId) {
-  const section = chunkId ? 'section-' + chunkId.split('_').pop().replace(/^0+/, '') : '';
+  let section = '';
+  if (chunkId) {
+    // chunk_id 形如 "{doc_id}_{chunk_index:05d}", 取末段补零数字并还原为真实索引(含 0)
+    const idx = parseInt(String(chunkId).split('_').pop(), 10);
+    if (!Number.isNaN(idx)) section = 'section-' + idx;
+  }
   const url = '/documents-browser?doc=' + encodeURIComponent(docId) + (section ? '&section=' + section : '');
   window.open(url, '_blank');
 }
@@ -720,6 +801,40 @@ function regenerate() {
   send(true);
 }
 
+/* ---------------- P2 多语言 i18n ---------------- */
+function switchLang(lang) {
+  if (window.i18n) window.i18n.setLang(lang);
+}
+
+/* ---------------- P2 多模态图片 ---------------- */
+let _pendingImages = [];
+function attachImages(files) {
+  for (const f of files) {
+    if (!f.type || !f.type.startsWith('image/')) continue;
+    if (_pendingImages.length >= 4) break;
+    const reader = new FileReader();
+    reader.onload = () => {
+      _pendingImages.push(reader.result);
+      renderImgPreview();
+    };
+    reader.readAsDataURL(f);
+  }
+  document.getElementById('imgInput').value = '';
+}
+function renderImgPreview() {
+  const box = document.getElementById('imgPreview');
+  if (!box) return;
+  box.style.display = _pendingImages.length ? 'flex' : 'none';
+  box.innerHTML = _pendingImages.map((src, i) =>
+    `<span style="position:relative"><img src="${src}" style="height:48px;border-radius:8px;border:1px solid var(--line)"/>` +
+    `<button type="button" onclick="removeImage(${i})" style="position:absolute;top:-6px;right:-6px;border:none;background:var(--err);color:#fff;border-radius:50%;width:18px;height:18px;line-height:1;cursor:pointer;font-size:11px">×</button></span>`
+  ).join('');
+}
+function removeImage(i) {
+  _pendingImages.splice(i, 1);
+  renderImgPreview();
+}
+
 async function send(regenerateMode = false) {
   const input = document.getElementById('input');
   const question = regenerateMode ? lastQuestion : input.value.trim();
@@ -738,6 +853,9 @@ async function send(regenerateMode = false) {
   setBusy(true);
   input.value = '';
   lastQuestion = question;
+  const images = _pendingImages.slice();
+  _pendingImages = [];
+  renderImgPreview();
 
   currentAbort = new AbortController();
   const signal = currentAbort.signal;
@@ -747,7 +865,9 @@ async function send(regenerateMode = false) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         question, conversation_id: currentConvId,
-        doc_version: document.getElementById('docVersion').value ? Number(document.getElementById('docVersion').value) : null
+        doc_version: document.getElementById('docVersion').value ? Number(document.getElementById('docVersion').value) : null,
+        images: images.length ? images : null,
+        lang: window.RAG_LANG || 'zh'
       }),
       signal
     });
@@ -764,7 +884,9 @@ async function send(regenerateMode = false) {
         const raw = buffer.slice(0, idx);
         buffer = buffer.slice(idx + 2);
         const ev = parseSSE(raw);
-        if (ev.event === 'token') {
+        if (ev.event === 'retrieved_chunks') {
+          renderRetrievedChunks(botEl, ev.data.chunks || []);
+        } else if (ev.event === 'token') {
           answer += ev.data.content || '';
           setStage(botEl, null);
           bubble.textContent = answer;
@@ -863,7 +985,7 @@ document.getElementById('input').addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
 });
 loadConversations();
-initAuth();
+initAuth().finally(connectNotifyWS);
 loadBell();
 loadWorkbenchStats();
 loadKbStatus();

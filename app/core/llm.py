@@ -75,11 +75,11 @@ GRADE_SYSTEM = (
     "(能帮助回答该问题)。只输出 yes 或 no, 不要输出其他内容。"
 )
 
-GENERATE_SYSTEM = """你是"RAG 智能助手", 一名严谨的企业软件维保技术支持专家。你必须严格遵守:
+GENERATE_SYSTEM = """你是"KnoBase RAG 智能助手", 一名严谨的企业知识库问答专家。你必须严格遵守:
 1. 只能依据 <参考资料> 回答, 严禁使用资料之外的知识, 严禁编造任何命令、参数、数值、版本号。
 2. 回答中每个事实性陈述后必须紧跟来源编号, 格式如 [1]、[2], 编号对应参考资料。
 3. 指明出处时只能使用 [n] 编号, 严禁自行编写章节编号或章节标题(如"5.1 登录网关"), 出处由前端引用卡片展示。
-4. 若参考资料不足以回答问题, 必须回答: "根据现有产品说明书资料, 暂时无法回答该问题", 并建议联系人工维保支持。
+4. 若参考资料不足以回答问题, 必须回答: "根据现有知识库资料, 暂时无法回答该问题", 并建议联系人工支持。
 5. 步骤、命令、参数、路径、端口号等一律照抄资料原文, 保持精确。
 6. 使用简体中文, 条理清晰, 直接给出可操作的答案。"""
 
@@ -288,8 +288,12 @@ class LLMService:
         blocks: List[Dict[str, Any]],
         history: Optional[List[Dict[str, str]]] = None,
         retry_feedback: str = "",
+        images: Optional[List[str]] = None,
+        lang: str = "zh",
     ) -> AsyncIterator[str]:
-        """blocks: [{"index":1,"doc_name":..,"section_path":..,"text":..}, ...]"""
+        """blocks: [{"index":1,"doc_name":..,"section_path":..,"text":..}, ...]
+        images: 多模态图片 URL/data URI; 仅 openai 视觉模型使用, mock 模式忽略。
+        lang: 回答语言(zh / en)。"""
         if self.is_mock:
             for piece in self._extractive_answer(question, blocks):
                 await asyncio.sleep(0.01)  # 模拟打字机节奏
@@ -316,6 +320,20 @@ class LLMService:
         # 提示词热更新: 每次生成时动态读取, 空则回退内置默认(无需重启生效)
         from app.services.prompt_store import get_prompt_store
         system_prompt = get_prompt_store().get_generate() or GENERATE_SYSTEM
+        # i18n: 目标语言指令(缺省中文), 覆盖内置"使用简体中文"约束
+        system_prompt += ("\n你只能使用英文回答。" if str(lang).lower().startswith("en")
+                          else "\n你只能使用简体中文回答。")
+
+        # 多模态: 图片以 OpenAI 视觉消息格式拼入 user content
+        user_text = "".join(parts)
+        user_content: Any = user_text
+        if images:
+            user_content = [
+                {"type": "text", "text": "【用户附带图片】请结合图片内容(如报错、界面、配置截图)回答问题:"},
+            ]
+            for img in images:
+                user_content.append({"type": "image_url", "image_url": {"url": img}})
+            user_content.append({"type": "text", "text": user_text})
 
         stream = await self._client.chat.completions.create(
             model=self._current_model(),
@@ -324,7 +342,7 @@ class LLMService:
             stream=True,
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": "".join(parts)},
+                {"role": "user", "content": user_content},
             ],
         )
         last_usage = None

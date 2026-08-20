@@ -1,0 +1,13 @@
+{
+  "brand_title": "KnoBase RAG智能助手",
+  "brand_subtitle": "RAG 检索增强 · 知识即服务",
+  "new_chat": "＋ 新建会话",
+  "kb_browser": "📖 知识库浏览器",
+  "admin_console": "📊 控制台",
+  "env_label": "当前环境",
+  "input_placeholder": "请输入问题，例如：如何配置知识源？",
+  "send": "发送",
+  "stop": "■ 停止",
+  "hint": "回答均来自产品说明书原文并标注来源；无法确认的信息将明确拒答，避免误导",
+  "search_scope": "检索范围："
+}

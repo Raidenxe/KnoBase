@@ -1,38 +1,28 @@
-# ---- 环境密文(严禁提交) ----
-.env
-*.env.local
+# ---------- 运行时数据(上传文档/向量库/各 SQLite 库, 含敏感数据) ----------
+data/
 
-# ---- Python ----
+# ---------- Python 缓存与构建产物 ----------
 __pycache__/
-*.py[cod]
+*.pyc
+*.pyo
+*.egg-info/
 .venv/
 venv/
-.pytest_cache/
-*.egg-info/
-.ruff_cache/
-.mypy_cache/
 
-# ---- 运行数据(含敏感: 认证/工单/通知/会话等) ----
-# 键名规则 data/*.db 已覆盖如 auth.db/tickets.db/notify.db/shares.db 等
-data/*.db
-data/*.db.lock
-data/milvus_lite*
-data/prompts.json
-data/uploads/
-data/backup/
-data/manuals/
-!data/manuals/.gitkeep
+# ---------- 本地配置与密钥(.env 含 JWT 密钥/API Key, 严禁提交) ----------
+.env
 
-# ---- 运行时产物 ----
-logs/
-log/
+# ---------- 本地测试/校验脚本(含硬编码测试凭据与服务器绝对路径, 不上传) ----------
+scripts/
+verify*.py
+verify*.sh
+p0_verify.sh
+p2_verify.sh
+cleanup*.py
+fix_index.py
+
+# ---------- 日志与临时文件 ----------
 *.log
-.*.log
 nohup.out
 .run/
-
-# ---- 编辑器 / 系统 ----
 .DS_Store
-*.swp
-.idea/
-.vscode/

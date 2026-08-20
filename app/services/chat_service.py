@@ -37,14 +37,22 @@ class ChatService:
     def __init__(self) -> None:
         self.graph = build_graph()
 
-    def _prepare(self, question: str, conversation_id: Optional[str], tenant_id: str):
+    def _owner(self, user: Optional[dict]) -> str:
+        """会话归属: 真实登录用户按其 id 隔离; 匿名/演示模式不设归属。"""
+        if user and not user.get("is_anonymous"):
+            return user.get("id", "")
+        return ""
+
+    def _prepare(self, question: str, conversation_id: Optional[str], tenant_id: str,
+                 user: Optional[dict] = None):
         store = get_conversation_store()
         settings = get_settings()
+        owner = self._owner(user)
         if conversation_id:
-            if not store.get_conversation(conversation_id, tenant_id):
+            if not store.get_conversation(conversation_id, tenant_id, owner):
                 raise ValueError(f"会话不存在: {conversation_id}")
         else:
-            conv = store.create_conversation(question.strip()[:30] or "新会话", tenant_id)
+            conv = store.create_conversation(question.strip()[:30] or "新会话", tenant_id, owner)
             conversation_id = conv["id"]
         history = store.history_window(
             conversation_id, settings.history_window_messages
@@ -60,9 +68,11 @@ class ChatService:
         tenant_id: Optional[str] = None,
         doc_version: Optional[int] = None,
         user: Optional[dict] = None,
+        images: Optional[List[str]] = None,
+        lang: str = "zh",
     ) -> ChatResult:
         tenant_id = tenant_id or get_settings().default_tenant
-        conversation_id, history = self._prepare(question, conversation_id, tenant_id)
+        conversation_id, history = self._prepare(question, conversation_id, tenant_id, user)
         trace_id = get_trace_store().start("chat", tenant_id)
         t0 = time.perf_counter()
         try:
@@ -74,6 +84,8 @@ class ChatService:
                     "tenant_id": tenant_id,
                     "trace_id": trace_id,
                     "doc_version": doc_version,
+                    "images": images,
+                    "lang": lang,
                     "category_scope": self._category_scope(user),
                 }
             )
@@ -94,9 +106,11 @@ class ChatService:
         tenant_id: Optional[str] = None,
         doc_version: Optional[int] = None,
         user: Optional[dict] = None,
+        images: Optional[List[str]] = None,
+        lang: str = "zh",
     ) -> AsyncIterator[Dict[str, Any]]:
         tenant_id = tenant_id or get_settings().default_tenant
-        conversation_id, history = self._prepare(question, conversation_id, tenant_id)
+        conversation_id, history = self._prepare(question, conversation_id, tenant_id, user)
         trace_id = get_trace_store().start("chat", tenant_id)
         queue: asyncio.Queue = asyncio.Queue()
         final_result: Dict[str, Any] = {}
@@ -117,6 +131,8 @@ class ChatService:
                         "trace_id": trace_id,
                         "emit": emit,
                         "doc_version": doc_version,
+                        "images": images,
+                        "lang": lang,
                         "category_scope": self._category_scope(user),
                     }
                 )

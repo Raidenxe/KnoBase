@@ -25,10 +25,12 @@ from app.api.routes import (
     notifications,
     observability,
     project_docs,
+    setup,
     shares,
     tasks,
     tickets,
     ws,
+    bots,
 )
 from app.config import get_settings
 from app.core.tracing import TracingMiddleware
@@ -128,7 +130,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.app_name,
         version=__version__,
-        description="基于 RAG 的软件维保问答系统: 检索增强 + 来源引用 + 多重防幻觉",
+        description="KnoBase RAG 智能助手: 基于企业知识库的检索增强问答系统, 支持来源引用与多重防幻觉",
         lifespan=lifespan,
     )
     app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins,
@@ -146,6 +148,8 @@ def create_app() -> FastAPI:
     app.include_router(tickets.router)
     app.include_router(notifications.router)
     app.include_router(project_docs.router)
+    app.include_router(setup.router)
+    app.include_router(bots.router)
 
     @app.get("/s/{token}", include_in_schema=False, summary="短分享链接 → 只读分享页")
     async def short_share_redirect(token: str):

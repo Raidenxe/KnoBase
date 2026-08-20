@@ -1,0 +1,13 @@
+{
+  "brand_title": "KnoBase RAG Assistant",
+  "brand_subtitle": "RAG · Knowledge as a Service",
+  "new_chat": "＋ New Chat",
+  "kb_browser": "📖 Knowledge Browser",
+  "admin_console": "📊 Console",
+  "env_label": "Environment",
+  "input_placeholder": "Ask a question, e.g. how to configure a knowledge source?",
+  "send": "Send",
+  "stop": "■ Stop",
+  "hint": "Answers are grounded in product documentation with citations; uncertain info is rejected to avoid misinformation",
+  "search_scope": "Scope:"
+}

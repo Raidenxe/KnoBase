@@ -68,6 +68,16 @@ class NotifyStore:
                  obj["title"], obj.get("content", ""), obj.get("link", ""), now),
             )
             self._conn.commit()
+        _emit_push({
+            "id": nid,
+            "tenant_id": obj["tenant_id"],
+            "user_id": obj["user_id"],
+            "type": obj["type"],
+            "title": obj["title"],
+            "content": obj.get("content", ""),
+            "link": obj.get("link", ""),
+            "created_at": now,
+        })
         return nid
 
     def notify_user(self, tenant_id: str, user_id: str, ntype: str,
@@ -213,6 +223,26 @@ def _new_id() -> str:
     import uuid
 
     return "N" + uuid.uuid4().hex[:20]
+
+
+# ---------------------------------------------------------------------------
+# 实时推送: 通知落库后回调已注册的推手(如 WebSocket 连接池), 不阻塞写路径
+# ---------------------------------------------------------------------------
+_PUSHERS: List[Any] = []
+
+
+def register_pusher(fn) -> None:
+    """注册一个通知推手(pusher), 签名 fn(dict) -> None, 幂等。"""
+    if fn not in _PUSHERS:
+        _PUSHERS.append(fn)
+
+
+def _emit_push(notification: Dict[str, Any]) -> None:
+    for fn in list(_PUSHERS):
+        try:
+            fn(notification)
+        except Exception:  # noqa: BLE001
+            pass
 
 
 _store: Optional[NotifyStore] = None

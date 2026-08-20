@@ -6,11 +6,15 @@
 
 from __future__ import annotations
 
-import shutil
+import csv
+import io
+import os
+import time
 from pathlib import Path
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app.config import get_settings
@@ -47,6 +51,10 @@ class ScanRequest(BaseModel):
 
 class BatchDeleteRequest(BaseModel):
     doc_ids: List[str]
+
+
+class DocEditRequest(BaseModel):
+    text: str  # 编辑后的文档全文(以 markdown/纯文本组织), 保存时重新切片+向量化
 
 
 class WebImportRequest(BaseModel):
@@ -100,6 +108,10 @@ def _enrich_meta(docs: List[dict], tenant_id: str, user: dict) -> List[dict]:
         if row["viewable"]:
             out.append(row)
     return out
+
+
+def _ts() -> str:
+    return time.strftime("%Y%m%d_%H%M%S")
 
 
 def _doc_viewable(meta: dict, user: dict) -> bool:
@@ -466,6 +478,48 @@ def documents_stats(user: dict = Depends(read_required)) -> dict:
     }
 
 
+@router.get("/export-csv", summary="导出知识库文档清单为 CSV（含命中统计）", dependencies=[Depends(read_required)])
+def export_documents_csv(user: dict = Depends(read_required)) -> Response:
+    """把当前用户可见的文档清单(含分类/权限/命中统计)导出为 CSV 文件。"""
+    from app.services.doc_stats import get_doc_stats_store
+
+    tenant_id = current_tenant_id(user)
+    docs = get_milvus_store().list_documents(tenant_id)
+    by_id = {d["doc_id"]: d for d in docs}
+    hits = get_doc_stats_store().stats(tenant_id)
+    rows: List[dict] = []
+    for h in hits:
+        doc = by_id.pop(h["doc_id"], None)
+        rows.append({"doc_id": h["doc_id"],
+                     "doc_name": h["doc_name"] or (doc or {}).get("doc_name", h["doc_id"]),
+                     "chunks": (doc or {}).get("chunks", 0), "hits": h["hit_count"],
+                     "last_hit_at": h["last_hit_at"]})
+    for d in by_id.values():
+        rows.append({"doc_id": d["doc_id"], "doc_name": d["doc_name"],
+                     "chunks": d["chunks"], "hits": 0, "last_hit_at": None})
+    # 附加分类/权限并过滤不可见(复用 /stats 相同逻辑)
+    rows = _enrich_meta(rows, tenant_id, user)
+    rows.sort(key=lambda r: -r["hits"])
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["doc_id", "doc_name", "format", "version", "category",
+                     "access_scope", "chunks", "hits", "last_hit_at"])
+    for r in rows:
+        writer.writerow([
+            r.get("doc_id", ""), r.get("doc_name", ""),
+            format_of(r.get("doc_name", "") or ""), "",
+            r.get("category", ""), r.get("access_scope", ""),
+            r.get("chunks", 0), r.get("hits", 0), r.get("last_hit_at", ""),
+        ])
+    content = buf.getvalue()
+    filename = f"knowledge_base_{tenant_id}_{_ts()}.csv"
+    return Response(
+        content="\ufeff" + content,  # BOM 便于 Excel 识别 UTF-8 中文
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
 @router.delete("/{doc_id}", summary="删除文档及其全部向量", dependencies=[Depends(write_required)])
 def delete_document(doc_id: str, user: dict = Depends(write_required)) -> dict:
     tenant_id = current_tenant_id(user)
@@ -756,6 +810,50 @@ def get_document_content(doc_id: str, user: dict = Depends(read_required)) -> di
     }
 
 
+@router.put("/{doc_id}/edit", summary="在线编辑文档全文并重新入库", dependencies=[Depends(write_required)])
+def edit_document_content(doc_id: str, req: DocEditRequest, user: dict = Depends(write_required)) -> dict:
+    """前端在线编辑后保存：把编辑后的全文写为临时 md 文件，复用 ingest_file(强制同 doc_id)
+    重解析 + 重新切片 + 重新向量化 + 新版本快照，旧向量自动清除、BM25 同步更新。"""
+    import tempfile
+
+    tenant_id = current_tenant_id(user)
+    _raise_unless_doc_viewable(doc_id, tenant_id, user, _doc_meta(doc_id, tenant_id))
+    if not req.text or not req.text.strip():
+        raise HTTPException(400, "文档内容不能为空")
+
+    # 取当前展示名(无记录时回退 doc_id)
+    doc_name = doc_id
+    try:
+        meta_rows = get_milvus_store().client.query(
+            collection_name=get_settings().milvus_collection,
+            filter=f'doc_id == "{doc_id}"',
+            output_fields=["doc_name"], limit=1,
+        )
+        if meta_rows and meta_rows[0].get("doc_name"):
+            doc_name = meta_rows[0]["doc_name"]
+    except Exception:  # noqa: BLE001
+        pass
+
+    # 写临时 md 文件再走标准入库管线(保持编号/向量/版本/BM25 一致)
+    fd, tmp_path = tempfile.mkstemp(suffix=".md", prefix="rag_edit_")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(req.text)
+        result = IngestPipeline().ingest_file(
+            tmp_path, doc_name=doc_name, doc_id=doc_id,
+            tenant_id=tenant_id, created_by=user.get("username", ""),
+        )
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:  # noqa: BLE001
+            pass
+    audit("edit_doc", actor=user.get("username", ""), tenant_id=tenant_id,
+          role=user.get("role", ""), target=doc_id,
+          detail=f"在线编辑并重新入库: {result.get('chunks', 0)} 块")
+    return result
+
+
 # ---------------------------------------------------------------------------
 # 文档版本管理(修订历史 / 指定版本 / 回滚)
 # ---------------------------------------------------------------------------
@@ -850,3 +948,75 @@ def doc_version_rollback(doc_id: str, version: int, user: dict = Depends(write_r
                                         "chunk_index", "page", "tenant_id", "doc_version", "text")})
     return {"doc_id": doc_id, "rolled_back_to": version,
             "current_version": new_ver, "chunk_count": len(rows)}
+
+
+# ---------------------------------------------------------------------------
+# 目录树接口（用于知识库浏览器按本地文件结构浏览）
+# ---------------------------------------------------------------------------
+class DirectoryTreeNode(BaseModel):
+    name: str
+    path: str  # 相对根目录的路径
+    is_dir: bool
+    children: list["DirectoryTreeNode"] = []
+    doc_count: int = 0  # 仅对目录有效，直接子文档数（不递归）
+    doc_id: str = ""  # 仅文件节点有效，前端据此直接打开文档（与入库指纹一致）
+
+class DirectoryTreeResponse(BaseModel):
+    root_path: str
+    children: list[DirectoryTreeNode]
+
+@router.get("/directory-tree", summary="文件系统目录树（按原结构浏览知识库)", dependencies=[Depends(read_required)])
+def list_directory_tree(user: dict = Depends(read_required)) -> DirectoryTreeResponse:
+    """扫描 manuals_dir 目录，返回目录树结构，用于知识库浏览器导航。
+    只包含支持的文档文件；第一级子目录将在 pipleline 导入时设置为分类。
+
+    只展示「已入库」的文档：以 Milvus 知识库清单为准，避免批量删除后
+    目录树仍残留原文件的旧标题（源文件可能因无 doc_record 记录而残留在磁盘）。
+    """
+    tenant_id = current_tenant_id(user)
+    manuals_dir = Path(get_settings().manuals_dir)
+    if not manuals_dir.is_dir():
+        return DirectoryTreeResponse(root_path=str(manuals_dir), children=[])
+
+    # 知识库权威清单: 只列入已向量化入库的 doc_id
+    valid_ids = {d["doc_id"] for d in get_milvus_store().list_documents(tenant_id)}
+
+    def scan(path: Path, base: Path) -> Optional[DirectoryTreeNode]:
+        rel = str(path.relative_to(base))
+        if path.is_file():
+            doc_id = IngestPipeline.compute_doc_id(path, path.stem)
+            if doc_id not in valid_ids:
+                return None
+            return DirectoryTreeNode(
+                name=path.name,
+                path=rel,
+                is_dir=False,
+                doc_count=0,
+                doc_id=doc_id,
+            )
+        children = []
+        doc_count = 0
+        for p in sorted(path.iterdir(), key=lambda p: (p.is_file(), p.name)):
+            if p.is_dir() or p.suffix.lower() in SUPPORTED_EXTS:
+                node = scan(p, base)
+                if node is not None:
+                    children.append(node)
+                    if not node.is_dir:
+                        doc_count += 1
+        if path == base:
+            # 根目录本身不作为一个目录节点返回(只透出其 children)
+            return DirectoryTreeNode(name=base.name, path="", is_dir=True,
+                                     children=children, doc_count=doc_count)
+        return DirectoryTreeNode(
+            name=path.name,
+            path=rel,
+            is_dir=True,
+            children=children,
+            doc_count=doc_count,
+        )
+
+    root = scan(manuals_dir, manuals_dir)
+    return DirectoryTreeResponse(
+        root_path=str(manuals_dir),
+        children=(root.children if root else []),
+    )

@@ -55,6 +55,25 @@ REFUSAL_TEMPLATE = (
     "2. 联系人工维保支持热线 400-800-1234（7×24 小时）获取帮助。"
 )
 
+REFUSAL_TEMPLATE_EN = (
+    "Sorry, I cannot answer this question based on the current product "
+    "documentation.\n\n"
+    "Reason: {reason}\n\n"
+    "Suggestions:\n"
+    "1. Try rephrasing, or specify the product name and module;\n"
+    "2. Contact our support hotline 400-800-1234 (24/7) for assistance."
+)
+
+# 拒答原因英译(常见场景), 保证英文拒答下 reason 同步为英文
+REASON_EN = {
+    "未在知识库中检索到与该问题直接相关的内容": (
+        "No relevant content was found in the knowledge base for this question"
+    ),
+    "生成内容未通过事实一致性校验, 为避免误导已拦截": (
+        "The generated answer failed fact-consistency verification and was blocked to avoid misinformation"
+    ),
+}
+
 
 async def _emit(state: GraphState, event: str, data: Dict[str, Any]) -> None:
     emit = state.get("emit")
@@ -135,6 +154,20 @@ async def retrieve(state: GraphState) -> Dict[str, Any]:
         "threshold": settings.retrieval_score_threshold,
         **(timings or {}),
     })
+    # 流式输出检索结果预览（用于前端显示可折叠的检索来源卡片）
+    blocks: List[Dict[str, Any]] = []
+    for i, h in enumerate(hits, start=1):
+        blocks.append({
+            "index": i,
+            "chunk_id": h["chunk_id"],
+            "doc_id": h["doc_id"],
+            "doc_name": h["doc_name"],
+            "section_path": h["section_path"],
+            "page": h.get("page", -1),
+            "score": h["score"],
+            "snippet": h["text"][:150],
+        })
+    await _emit(state, "retrieved_chunks", {"chunks": blocks})
     await _emit(state, "status", {"stage": "retrieved", "message": f"召回 {len(hits)} 个相关片段", "retrieval_ms": ms})
     logger.info("[retrieve] %d hits in %d ms (阈值=%.2f)", len(hits), ms, settings.retrieval_score_threshold)
     return {"retrieved": hits, "metrics": {**state.get("metrics", {}), "retrieval_ms": ms}}
@@ -206,6 +239,8 @@ async def generate(state: GraphState) -> Dict[str, Any]:
         blocks,
         state.get("history", []),
         state.get("verify_feedback", ""),
+        state.get("images"),
+        state.get("lang", "zh"),
     ):
         pieces.append(token)
         await _emit(state, "token", {"content": token})
@@ -281,7 +316,11 @@ async def verify(state: GraphState) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 async def refuse(state: GraphState) -> Dict[str, Any]:
     reason = state.get("refusal_reason", "未检索到相关资料")
-    message = REFUSAL_TEMPLATE.format(reason=reason)
+    english = str(state.get("lang", "zh")).lower().startswith("en")
+    template = REFUSAL_TEMPLATE_EN if english else REFUSAL_TEMPLATE
+    if english:
+        reason = REASON_EN.get(reason, reason)
+    message = template.format(reason=reason)
     if state.get("retries", 0) > 0:
         await _emit(state, "reset", {"reason": "回答未通过一致性校验，已替换为安全回复"})
     pieces: List[str] = []

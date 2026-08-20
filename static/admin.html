@@ -148,6 +148,18 @@
   ::-webkit-scrollbar-thumb { background: #cdd5e1; border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
   ::-webkit-scrollbar-thumb:hover { background: #aeb9ca; background-clip: content-box; }
 
+  /* ===== 无权限遮罩 ===== */
+  .no-access { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(1000px 520px at 78% -10%, #eef3fb 0%, transparent 55%), var(--bg); }
+  .no-access .na-card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+    padding: 36px 44px; text-align: center; max-width: 420px; box-shadow: var(--shadow-md); }
+  .no-access .na-lock { font-size: 40px; margin-bottom: 12px; }
+  .no-access h2 { font-size: 19px; color: var(--heading); margin-bottom: 10px; }
+  .no-access p { color: var(--muted); font-size: 13px; line-height: 1.7; margin-bottom: 20px; }
+  .no-access .na-btn { display: inline-block; padding: 9px 20px; background: var(--primary); color: #fff;
+    text-decoration: none; border-radius: 8px; font-size: 14px; }
+  .no-access .na-btn:hover { opacity: .9; }
+
   /* 驾驶舱指标卡 */
   .stats { gap:16px; }
   .card { box-shadow: var(--shadow-sm); transition: transform .15s, box-shadow .2s, border-color .15s; }
@@ -197,8 +209,8 @@
 <div class="app">
   <aside class="side">
     <div class="logo">
-      <div class="logo-badge">R</div>
-      <div><strong>RAG 智能助手控制台</strong><small id="appVersion">v0.1.0 · AI 运维平台</small></div>
+      <div class="logo-badge">K</div>
+      <div><strong>KnoBase RAG 智能助手控制台</strong><small id="appVersion">v0.2.0 · KnoBase RAG</small></div>
     </div>
     <div class="group">运营</div>
     <nav class="nav" id="sideNav">
@@ -308,6 +320,22 @@
   <h2>知识库覆盖统计</h2>
   <div class="stats" id="kbStats" style="margin-bottom:12px;"></div>
 
+  <!-- P2 统计看板：Top 命中文档柱状图 + 覆盖分布环图 + 零覆盖文档清单 -->
+  <div class="kb-charts" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:12px;">
+    <div class="card">
+      <div class="label">Top 命中文档</div>
+      <div class="chart-wrap"><canvas id="kbTopChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="label">覆盖分布</div>
+      <div class="chart-wrap"><canvas id="kbCoverChart"></canvas></div>
+    </div>
+  </div>
+  <div class="card" id="kbZeroCover" style="margin-bottom:12px;display:none;">
+    <div class="label">零覆盖文档（从未被命中）</div>
+    <div id="kbZeroList" style="max-height:220px;overflow:auto;font-size:13px;"></div>
+  </div>
+
   <!-- 上传区：拖拽 + 选择文件 + 格式/大小校验 + 进度 -->
   <div id="kbUploadZone" class="upload-zone">
     <input type="file" id="kbFileInput" multiple hidden
@@ -350,11 +378,23 @@
     </select>
     <button class="back" onclick="batchApply('scope')" style="border:none;">🔒 设权限</button>
     <button class="back danger" onclick="batchDeleteDocs()" style="border:none;color:var(--err);">🗑 批量删除</button>
+    <button class="back" onclick="exportKbCsv()" style="border:none;">⬇ 导出 CSV</button>
     <button class="back" onclick="initKb()" style="border:none;">↻ 刷新</button>
   </div>
 
   <div id="kbDocsTable"></div>
   <div id="kbPager" style="margin:10px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap;"></div>
+
+  <h2 style="margin-top:24px;">🌐 Web 爬虫导入</h2>
+  <div class="card" style="margin-bottom:12px;">
+    <p class="tiny" style="margin-bottom:8px;">填入一个或多个网页 URL（每行一个），将抓取网页正文并导入为知识库文档。支持后台执行：立即返回任务 ID，在下方“入库进度”中查看。</p>
+    <textarea id="webUrls" placeholder="https://example.com/docs/page1&#10;https://example.com/docs/page2" style="width:100%;height:90px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:13px;resize:vertical;color:var(--text);background:var(--panel);"></textarea>
+    <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <button class="btn" onclick="webImport(false)">🚀 立即导入</button>
+      <button class="btn" onclick="webImport(true)">⏱ 后台导入</button>
+      <span id="webImportResult" class="tiny"></span>
+    </div>
+  </div>
 
   <h2 style="margin-top:24px;">入库进度（后台任务）</h2>
   <div id="kbTasksTable"></div>
@@ -614,24 +654,82 @@ function apiFetch(path, opts = {}) {
     return r.json();
   });
 }
+const ROLE_LABEL = { admin: '管理员', owner: '租户拥有者', member: '成员', viewer: '只读访客' };
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-/* 校验管理员权限: 拉取 admin stats, 若 403 提示无权限 */
+/* 导出知识库文档清单为 CSV(带鉴权头, 触发浏览器下载) */
+async function exportKbCsv() {
+  try {
+    const resp = await fetch(API + '/documents/export-csv', {
+      headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+    });
+    if (resp.status === 401) { window.location.href = '/login.html'; return; }
+    if (!resp.ok) throw new Error(await resp.text() || resp.status);
+    // 从 Content-Disposition 解析文件名, 解析不到则用默认
+    let filename = 'knowledge_base.csv';
+    const cd = resp.headers.get('Content-Disposition') || '';
+    const m = cd.match(/filename="?([^";]+)"?/);
+    if (m) filename = m[1];
+    const blob = await resp.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  } catch (e) { alert('导出失败：' + e.message); }
+}
+
+/* 校验管理员权限: 拉取 /auth/me 判定角色; 非 admin 展示“无权限”遮罩而非残缺管理台 */
+const CONSOLE_ADMIN_ROLE = 'admin';
+function showNoAccess(roleLabel) {
+  // 幂等: 已展示过则不再重复注入(init 会被定时器多次调用)
+  if (document.querySelector('.no-access')) return;
+  // 隐藏应用主体, 展示角色信息与清晰的无权限空态
+  document.body.classList.add('locked');
+  const aside = document.querySelector('.sidebar');
+  const main = document.querySelector('.main');
+  if (aside) aside.style.display = 'none';
+  if (main) main.style.display = 'none';
+  const gate = document.createElement('div');
+  gate.className = 'no-access';
+  gate.innerHTML =
+    '<div class="na-card">' +
+    '<div class="na-lock">🔒</div>' +
+    '<h2>无权访问管理控制台</h2>' +
+    '<p>当前账号（<' + esc(roleLabel || '') + '>）没有管理后台权限，仅限 <b>管理员</b> 角色访问。</p>' +
+    '<a class="na-btn" href="/">← 返回聊天</a>' +
+    '</div>';
+  document.body.appendChild(gate);
+}
 async function init() {
   const meEl = document.getElementById('who');
   if (!token) { window.location.href = '/login.html'; return; }
   let userName = '已登录';
+  let roleValue = '';
   try {
-    const u = JSON.parse(localStorage.getItem('rag_user'));
-    userName = u.username || u.name || '已登录';
-  } catch { /* 降级显示默认值 */ }
+    // 从后端读取真实身份, 避免仅依赖本地缓存(可能滞后或缺失)
+    const me = await apiFetch('/auth/me');
+    userName = me.username || userName;
+    roleValue = me.role || '';
+  } catch { /* 降级: 用本地缓存 */ }
+  if (!roleValue) {
+    try { const u = JSON.parse(localStorage.getItem('rag_user')); userName = u.username || userName; } catch {}
+  }
   meEl.textContent = token ? userName : '';
-  // 同步侧边栏用户信息
+  // 同步侧边栏用户信息 + 真实角色标识
   document.getElementById('sideUser').textContent = userName;
+  document.getElementById('sideRole').textContent = ROLE_LABEL[roleValue] || roleValue || '未知角色';
+  // 非管理员: 直接拦截, 展示“无权限”空态, 不再加载管理数据
+  if (roleValue && roleValue !== CONSOLE_ADMIN_ROLE) {
+    showNoAccess(ROLE_LABEL[roleValue] || roleValue);
+    return;
+  }
   // 从后端读取版本号
   apiFetch('/health').then(h => {
     const el = document.getElementById('appVersion');
-    if (h && h.version) el.textContent = 'v' + h.version + ' · AI 运维平台';
+    if (h && h.version) el.textContent = 'v' + h.version + ' · KnoBase RAG';
   }).catch(() => {});
   try {
     const d = await apiFetch('/conversations/admin/stats?limit=200');
@@ -918,6 +1016,7 @@ async function initKb() {
       <div class="card"><div class="label">知识块</div><div class="value">${d.total_chunks ?? 0}</div></div>
       <div class="card"><div class="label">覆盖率</div><div class="value">${((d.coverage_rate ?? 0) * 100).toFixed(1)}%</div><div class="sub">有命中的块占比</div></div>
       <div class="card"><div class="label">累计命中</div><div class="value">${d.total_hits ?? 0}</div></div>`;
+    renderKbCharts(d);
   } catch (e) {
     statsEl.innerHTML = `<p style="color:var(--err)">统计加载失败：${esc(e.message)}</p>`;
   }
@@ -933,6 +1032,53 @@ async function initKb() {
   kbPage = 1;
   loadKbDocs();
   loadKbTasks();
+}
+
+/* P2 统计看板图表：Top 命中文档柱状图 + 覆盖分布环图 + 零覆盖文档清单 */
+let _kbTopChart = null, _kbCoverChart = null;
+function renderKbCharts(d) {
+  const docs = (d.documents || []).sort((a, b) => (b.hits || 0) - (a.hits || 0));
+  const top = docs.filter(x => (x.hits || 0) > 0).slice(0, 10);
+  const zero = docs.filter(x => !(x.hits || 0));
+
+  // Top 命中文档柱状图
+  const topCtx = document.getElementById('kbTopChart');
+  if (topCtx && typeof Chart !== 'undefined') {
+    if (_kbTopChart) _kbTopChart.destroy();
+    _kbTopChart = new Chart(topCtx, {
+      type: 'bar',
+      data: {
+        labels: top.map(x => (x.doc_name || x.doc_id || '').slice(0, 12)),
+        datasets: [{ label: '命中次数', data: top.map(x => x.hits), backgroundColor: '#2563eb', borderRadius: 6 }],
+      },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { ticks: { precision: 0 } } } },
+    });
+  }
+
+  // 覆盖分布环图（有命中 vs 零覆盖）
+  const coverCtx = document.getElementById('kbCoverChart');
+  if (coverCtx && typeof Chart !== 'undefined') {
+    if (_kbCoverChart) _kbCoverChart.destroy();
+    const covered = docs.filter(x => (x.hits || 0) > 0).length;
+    _kbCoverChart = new Chart(coverCtx, {
+      type: 'doughnut',
+      data: { labels: ['有命中', '零覆盖'],
+        datasets: [{ data: [covered, zero.length], backgroundColor: ['#16a34a', '#e4e8ef'] }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } },
+    });
+  }
+
+  // 零覆盖文档清单
+  const zeroCard = document.getElementById('kbZeroCover');
+  const zeroList = document.getElementById('kbZeroList');
+  if (zeroCard && zeroList) {
+    zeroCard.style.display = zero.length ? 'block' : 'none';
+    zeroList.innerHTML = zero.length ? zero.map(x =>
+      `<div style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--muted)">${esc(x.doc_name || x.doc_id)} <span class="tiny">（${x.chunks} 块）</span></div>`).join('')
+      : '';
+  }
 }
 
 /* 文档列表：搜索 / 状态 / 分类筛选 + 分页(20/页) */
@@ -1301,6 +1447,29 @@ async function delDoc(docId, name) {
     alert('已删除');
     closeDrawer(); kbPage = 1; loadKbDocs();
   } catch (e) { alert('删除失败：' + e.message); }
+}
+
+/* ---- Web 爬虫导入 ---- */
+async function webImport(background) {
+  const raw = (document.getElementById('webUrls').value || '').trim();
+  const urls = raw.split(/\n+/).map(s => s.trim()).filter(Boolean);
+  if (!urls.length) { alert('请先填入网页 URL'); return; }
+  const resEl = document.getElementById('webImportResult');
+  resEl.textContent = '导入中…';
+  try {
+    const r = await apiFetch('/documents/web-import', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ urls: urls, background: background })
+    });
+    if (r.task_id) {
+      resEl.textContent = `⏱ 已提交后台任务 ${r.task_id.slice(0, 8)}…，见下方进度。`;
+      loadKbTasks(); refreshKbAfterMeta();
+    } else {
+      resEl.textContent = `✅ 导入 ${r.imported_count} 篇，失败 ${r.error_count} 篇`;
+      if (r.errors && r.errors.length) console.warn('web-import errors', r.errors);
+      refreshKbAfterMeta();
+    }
+  } catch (e) { resEl.textContent = '❌ ' + e.message; }
 }
 
 /* ---- 批量操作 ---- */
@@ -1771,8 +1940,6 @@ async function loadUsers() {
       <tbody>${users.map(row).join('') || '<tr><td colspan="7" class="tiny">暂无用户（请先在「新增用户」中创建）</td></tr>'}</tbody></table>`;
   } catch (e) { el.innerHTML = `<p class="tiny">加载失败: ${esc(e.message)}</p>`; }
 }
-
-const ROLE_LABEL = { admin: '管理员', owner: '租户拥有者', member: '成员', viewer: '只读访客' };
 let _editingUserId = null;
 async function openUserModal() {
   _editingUserId = null;

@@ -64,3 +64,31 @@ async def ws_chat(ws: WebSocket) -> None:
         return
     except Exception:  # noqa: BLE001
         await _send(ws, "error", {"detail": "WebSocket 内部错误"})
+
+
+@router.websocket("/api/v1/ws/notify")
+async def ws_notify(ws: WebSocket) -> None:
+    """通知实时推送: 建立连接后, 有新通知即推送 notification 事件。
+
+    认证关闭(演示模式)返回匿名用户(无 user_id), 无个人通知可推, 直接关闭。
+    客户端断开后由 hub 清理连接。
+    """
+    await ws.accept()
+    user = await get_ws_user(ws)
+    user_id = user.get("id", "")
+    if not user_id:
+        await ws.close(code=1000)
+        return
+    from app.services.ws_hub import get_notify_hub
+
+    hub = get_notify_hub()
+    tenant_id = current_tenant_id(user)
+    hub.connect(ws, tenant_id, user_id)
+    try:
+        # 保持连接存活: 忽略客户端消息(可选心跳); 断开即退出
+        while True:
+            await ws.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        hub.disconnect(ws, tenant_id, user_id)

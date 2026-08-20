@@ -57,6 +57,13 @@
   .error { color: var(--err); font-size: 13px; text-align: center; margin-top: 12px; display: none; }
   .error.show { display: block; }
   .info { color: var(--muted); font-size: 12px; text-align: center; margin-top: 16px; }
+
+  /* ---------- 移动端适配 ---------- */
+  @media(max-width:480px){
+    body { align-items: flex-start; }
+    .card { padding: 28px 20px; width: 100%; max-width: 100vw; border-radius: 0; box-shadow: none; border-left: none; border-right: none; }
+    .card .brand { margin-bottom: 24px; }
+  }
 </style>
 </head>
 <body>
@@ -93,10 +100,20 @@ async function checkAuthMode() {
       window.location.href = '/';
       return false;
     }
+    await checkSetup();
     return true;
   } catch {
     return true;
   }
+}
+
+async function checkSetup() {
+  // 首次启动(认证开启且尚无管理员) → 跳转初始化向导
+  try {
+    const r = await fetch(API + '/setup/status');
+    const d = await r.json();
+    if (d.needs_setup) { window.location.href = '/setup.html'; }
+  } catch (e) {}
 }
 
 async function handleLogin(e) {

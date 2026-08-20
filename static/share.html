@@ -36,6 +36,14 @@
   .empty { text-align:center; margin-top:20%; color:var(--muted); }
   .cite { margin-top:10px; font-size:12px; color:var(--muted); border-top:1px dashed var(--border); padding-top:8px; }
   .cite span { color:var(--primary); }
+
+  /* ---------- 移动端适配 ---------- */
+  @media(max-width:600px){
+    .conv { height:calc(100vh - 52px); }
+    .head { padding:10px 14px; }
+    .msg { padding:14px 5%; gap:10px; }
+    .box { padding:10px 12px; font-size:13.5px; }
+  }
 </style>
 </head>
 <body>

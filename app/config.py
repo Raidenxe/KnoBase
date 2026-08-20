@@ -14,8 +14,8 @@ class Settings(BaseSettings):
     )
 
     # ---------- 应用 ----------
-    app_name: str = "RAG 智能助手"
-    app_version: str = "0.1.0"
+    app_name: str = "KnoBase RAG智能助手"
+    app_version: str = "0.2.0"
     host: str = "0.0.0.0"
     port: int = 8000
     cors_origins: List[str] = ["*"]
@@ -123,6 +123,14 @@ class Settings(BaseSettings):
     notify_db_path: str = "./data/notify.db"       # 用户通知(SQLite, 保留策略自动清理)
     notify_retention_days: int = 90                # 通知自动保留天数, 超期清理
     ticket_db_path: str = "./data/tickets.db"      # 工单系统(SQLite)
+
+    # ---------- 机器人接入(飞书/钉钉) ----------
+    # 飞书事件订阅(im.message.receive_v1): verification_token 用于回调验签, 可不配置(关闭验证)
+    feishu_app_id: str = ""
+    feishu_app_secret: str = ""
+    feishu_verification_token: str = ""
+    # 钉钉自定义机器人「加签」secret: 用于校验回调 timestamp/sign, 不配置则跳过验签
+    dingtalk_sign_secret: str = ""
 
     # ---------- 分块 ----------
     chunk_size: int = 480                         # 单块目标字符数(中文)
