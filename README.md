@@ -100,10 +100,27 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 ---
 
+## 文档（Documentation）
+
+仓库内维护面向公开的技术文档，见 `docs/` 目录：
+
+| 文档 | 说明 |
+| --- | --- |
+| [docs/api.md](docs/api.md) | REST / WebSocket 接口参考 |
+| [docs/architecture.md](docs/architecture.md) | 整体架构与技术选型 |
+| [docs/deployment.md](docs/deployment.md) | 部署与配置（`RAG_*`）说明 |
+| [docs/rbac.md](docs/rbac.md) | 认证与权限（RBAC / 租户隔离） |
+| [docs/tracing.md](docs/tracing.md) | 全链路追踪 |
+| [docs/versioning.md](docs/versioning.md) | 版本管理约定 |
+
+> 公司与内部相关的规划、报告、评测数据、测试脚本、产品手册等**不作为公开文档随仓库发布**，仅保留在本机 / 内网。
+
+---
+
 ## 安全
 
 - 敏感配置（JWT 密钥、LLM / Embedding API Key）**一律通过环境变量注入**，严禁写入代码或提交 `.env`。
-- `.env`、运行时数据目录 `data/`、测试脚本等已通过 `.gitignore` 排除，不会进入版本库。
+- `.env`、运行时数据目录 `data/`、测试脚本 `scripts/`、评测数据 `eval/`、内部文档等已通过 `.gitignore` 排除，不会进入版本库。
 - 认证开启时，管理控制台仅管理员可访问；普通用户显示无权限提示而非部分界面。
 
 ---
@@ -111,6 +128,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 ## 版本历史
 
 ### v0.2.0
+- 仓库公开化：仅保留公开技术文档，移除内部规划/报告、评测数据、测试脚本与产品手册
 - 知识库目录树基于 Milvus 实际档案渲染，与库内文档一致
 - 批量操作（批删 / 批改元数据）、CSV 导出、文档在线编辑
 - 全部页面移动端适配；目录树与操作按钮无障碍 / 语义化改进

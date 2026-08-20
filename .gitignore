@@ -25,4 +25,17 @@ fix_index.py
 *.log
 nohup.out
 .run/
-.DS_Store
+.DS_Store# ---------- 内部文档 / 评测 / 测试脚本 / 产品手册(不上传) ----------
+docs/archive/
+docs/README.md
+docs/增强方案-一期.md
+docs/工单与通知.md
+docs/文档更新记录.md
+docs/模型参数精校报告.md
+docs/功能说明.md
+docs/使用指南.md
+docs/系统架构.md
+docs/API接口文档.md
+docs/RAG回答质量评估指标.md
+eval/
+tests/fixtures/manuals/
